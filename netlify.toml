@@ -6,8 +6,3 @@
   from = "/*"
   to = "/:splat"
   status = 200
-
-[build.environment]
-  NEXT_PUBLIC_SUPABASE_URL = "https://hwpexxswkixztmsdzxpy.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3cGV4eHN3a2l4enRtc2R6eHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMTY0ODIsImV4cCI6MjA4NjY5MjQ4Mn0.qrJHC9JxfDxJQGGcH89tlq9iFrBEhBEZ922q5r6OnZA"
-  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3cGV4eHN3a2l4enRtc2R6eHB5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTExNjQ4MiwiZXhwIjoyMDg2NjkyNDgyfQ.YWdB9AzrKAb3iSvkph5Zgi1r7Nn8qgkrCTClYXm20Ko"
