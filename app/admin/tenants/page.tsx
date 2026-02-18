@@ -871,19 +871,19 @@ export default function TenantsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
-                <select
-                  value={formData.room_id}
-                  onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select a room</option>
-                  {rooms.map(room => (
-                    <option key={room.id} value={room.id}>{room.room_number} - {room.type}</option>
-                  ))}
-                </select>
-              </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
+                 <select
+                   value={formData.room_id}
+                   onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="">Select a room</option>
+                   {rooms.filter(room => room.status === 'available' || (editingTenant && room.id === editingTenant.room_id)).map(room => (
+                     <option key={room.id} value={room.id}>{room.room_number} - {room.type}</option>
+                   ))}
+                 </select>
+               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                 <input
