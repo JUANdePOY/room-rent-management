@@ -769,7 +769,7 @@ export default function TenantBillsPage() {
                     placeholder="Enter amount"
                   />
                   <div className="text-sm text-gray-600">
-                    Maximum payment: ₱{selectedBill.remaining.toFixed(2)}
+                    Maximum payment: ₱{(selectedBill as any).remaining.toFixed(2)}
                   </div>
                 </div>
               </div>
