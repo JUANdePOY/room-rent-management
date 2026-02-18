@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { Bill, Tenant, Room, BillItem, Payment } from '../../../types'
+import { Bill, Tenant, Room, BillItem, Payment, ElectricReading, BillingRate } from '../../../types'
 import { 
   calculateTotalBill, 
   calculateRemainingBill, 
@@ -16,6 +16,8 @@ export default function BillsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
+  const [electricReadings, setElectricReadings] = useState<ElectricReading[]>([])
+  const [billingRates, setBillingRates] = useState<BillingRate[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
@@ -37,12 +39,14 @@ export default function BillsPage() {
   }, [])
 
   const fetchData = async () => {
-    const [billsData, tenantsData, roomsData, billItemsData, paymentsData] = await Promise.all([
+    const [billsData, tenantsData, roomsData, billItemsData, paymentsData, electricReadingsData, billingRatesData] = await Promise.all([
       supabase.from('bills').select('*'),
       supabase.from('tenants').select('*'),
       supabase.from('rooms').select('*'),
       supabase.from('bill_items').select('*'),
       supabase.from('payments').select('*'),
+      supabase.from('electric_readings').select('*'),
+      supabase.from('billing_rates').select('*'),
     ])
 
     if (billsData.data) {
@@ -129,6 +133,8 @@ export default function BillsPage() {
     if (tenantsData.data) setTenants(tenantsData.data)
     if (roomsData.data) setRooms(roomsData.data)
     if (paymentsData.data) setPayments(paymentsData.data)
+    if (electricReadingsData.data) setElectricReadings(electricReadingsData.data)
+    if (billingRatesData.data) setBillingRates(billingRatesData.data)
     setLoading(false)
   }
 
@@ -551,6 +557,68 @@ export default function BillsPage() {
                                     const itemPaid = (bill as any).totalPaid * paymentAllocation
                                     const itemRemaining = item.amount - itemPaid
                                     
+                                    // Enhanced electricity bill item with actual consumption data
+                                    if (item.item_type === 'electricity') {
+                                      const billDate = new Date(bill.due_date)
+                                      const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
+                                      const prevMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
+                                      prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
+                                      const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+                                      
+                                      // Get current and previous month's readings
+                                      const currentReading = electricReadings.find(r => 
+                                        r.room_id === bill.room_id && r.month_year === billMonth
+                                      )
+                                      const previousReading = electricReadings.find(r => 
+                                        r.room_id === bill.room_id && r.month_year === prevMonth
+                                      )
+                                      
+                                      // Get billing rate for current month
+                                      const billingRate = billingRates.find(r => 
+                                        r.month_year === billMonth
+                                      )
+                                      
+                                      let usage = 0
+                                      let rate = 0
+                                      let currentReadingVal = 0
+                                      let previousReadingVal = 0
+                                      
+                                      const roomData = rooms.find(r => r.id === bill.room_id)
+                                      
+                                      if (currentReading && previousReading) {
+                                        currentReadingVal = currentReading.reading
+                                        previousReadingVal = previousReading.reading
+                                        usage = currentReadingVal - previousReadingVal
+                                      } else if (currentReading && !previousReading && roomData?.initial_electric_reading !== undefined) {
+                                        // First month billing - use initial reading
+                                        currentReadingVal = currentReading.reading
+                                        previousReadingVal = roomData.initial_electric_reading
+                                        usage = currentReadingVal - previousReadingVal
+                                      }
+                                      
+                                      if (billingRate) {
+                                        rate = billingRate.electricity_rate
+                                      }
+                                      
+                                      return (
+                                        <div key={index} className="py-1">
+                                          <strong>{item.item_type}:</strong> ₱{item.amount.toFixed(2)}
+                                          <div className="text-xs text-gray-500">
+                                            Paid: ₱{itemPaid.toFixed(2)} | Remaining: <span className={itemRemaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{itemRemaining.toFixed(2)}</span>
+                                          </div>
+                                          {item.details && (
+                                            <div className="text-xs text-gray-500 mt-1"></div>
+                                          )}
+                                          {usage > 0 && rate > 0 && (
+                                            <div className="text-xs text-gray-600 mt-1">
+                                              Usage: {usage.toFixed(2)} kWh × ₱{rate.toFixed(4)}/kWh = ₱{(usage * rate).toFixed(2)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                    }
+                                    
+                                    // Default item format for other types
                                     return (
                                       <div key={index} className="py-1">
                                         <strong>{item.item_type}:</strong> ₱{item.amount.toFixed(2)}

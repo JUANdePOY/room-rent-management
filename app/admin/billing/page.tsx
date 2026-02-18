@@ -361,23 +361,23 @@ export default function BillingPage() {
           console.log('Remaining Balance Passed to calculateBillItems:', remainingBalance)
           console.log('Generated Bill Items:', billItems)
 
-          // Update item details with specific information
-           billItems = billItems.map(item => {
-            if (item.item_type === 'room_rent') {
-              return { ...item, details: `Room Rent: ${room.room_number}` }
-            } else if (item.item_type === 'electricity') {
-              return { ...item, details: `Electricity: ₱{electricUsage.toFixed(2)} kWh × ₱{billingRate.electricity_rate.toFixed(4)}/kWh` }
-            } else if (item.item_type === 'remaining_balance') {
-              const isCredit = item.amount < 0
-              return { 
-                ...item, 
-                details: isCredit 
-                  ? `Credit from Overpayment in ${prevMonth}` 
-                  : `Remaining Balance from ${prevMonth}` 
+           // Update item details with specific information
+            billItems = billItems.map(item => {
+              if (item.item_type === 'room_rent') {
+                return { ...item, details: `Room Rent: ${room.room_number}` }
+              } else if (item.item_type === 'electricity') {
+                return { ...item, details: `Electricity: ${electricUsage.toFixed(2)} kWh × ₱${billingRate.electricity_rate.toFixed(4)}/kWh` }
+              } else if (item.item_type === 'remaining_balance') {
+                const isCredit = item.amount < 0
+                return { 
+                  ...item, 
+                  details: isCredit 
+                    ? `Credit from Overpayment in ${prevMonth}` 
+                    : `Remaining Balance from ${prevMonth}` 
+                }
               }
-            }
-            return item
-          })
+              return item
+            })
 
           const { error: itemsError } = await supabase
             .from('bill_items')
