@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { Payment, Bill, Tenant, BillItem } from '../../../types'
+import { calculateTotalBill, calculateRemainingBill, calculateTotalPaid } from '../../../lib/billingUtils'
 
 
 export default function PaymentsPage() {
@@ -31,11 +32,7 @@ export default function PaymentsPage() {
     const bill = bills.find(b => b.id === billId)
     if (!bill) return 0
     
-    const billPayments = payments.filter(payment => 
-      payment.bill_id === billId && payment.status === 'accepted'
-    )
-    const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-    return bill.amount - totalPaid
+    return calculateRemainingBill(bill, payments)
   }
   const [totalRemainingBill, setTotalRemainingBill] = useState<number>(0)
 
@@ -57,12 +54,8 @@ export default function PaymentsPage() {
       const currentBill = currentMonthBills[0]
       
       // Calculate remaining balance for current month's bill
-      const billPayments = payments.filter(payment => 
-        payment.bill_id === currentBill.id && payment.status === 'accepted'
-      )
-      const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-      const remaining = currentBill.amount - totalPaid
-      setTotalRemainingBill(Math.max(0, remaining))
+      const remaining = calculateRemainingBill(currentBill, payments)
+      setTotalRemainingBill(remaining)
       
       setFormData(prev => ({
         ...prev,
@@ -71,22 +64,17 @@ export default function PaymentsPage() {
     } else {
       // If no current month bill, check for pending bills from previous months
       const pendingBills = bills.filter(bill => {
-        const billPayments = payments.filter(payment => payment.bill_id === bill.id && payment.status === 'accepted')
-        const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-        return bill.tenant_id === tenantId && bill.amount > totalPaid
+        const remaining = calculateRemainingBill(bill, payments)
+        return bill.tenant_id === tenantId && remaining > 0
       })
       
       if (pendingBills.length > 0) {
-      const latestPendingBill = pendingBills.sort((a, b) =>
+        const latestPendingBill = pendingBills.sort((a, b) =>
           new Date(b.due_date).getTime() - new Date(a.due_date).getTime()
         )[0]
         
-        const billPayments = payments.filter(payment => 
-          payment.bill_id === latestPendingBill.id && payment.status === 'accepted'
-        )
-        const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-        const remaining = latestPendingBill.amount - totalPaid
-        setTotalRemainingBill(Math.max(0, remaining))
+        const remaining = calculateRemainingBill(latestPendingBill, payments)
+        setTotalRemainingBill(remaining)
         
         setFormData(prev => ({
           ...prev,
@@ -203,13 +191,27 @@ export default function PaymentsPage() {
           .eq('bill_id', bill_id)
           .eq('status', 'accepted')
 
+        const { data: billItems } = await supabase
+          .from('bill_items')
+          .select('*')
+          .eq('bill_id', bill_id)
+
         const totalPaid = billPayments?.reduce((sum, payment) => sum + payment.amount_paid, 0) || 0
         const bill = bills.find(b => b.id === bill_id)
         
         if (bill) {
+          const billWithItems = {
+            ...bill,
+            items: billItems || []
+          }
+          
+          const totalBill = billItems && billItems.length > 0 
+            ? billItems.reduce((sum, item) => sum + item.amount, 0) 
+            : bill.amount
+
           let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
           
-          if (totalPaid >= bill.amount) {
+          if (totalPaid >= totalBill) {
             newStatus = 'paid'
           } else if (totalPaid > 0) {
             newStatus = 'partial'
@@ -225,50 +227,96 @@ export default function PaymentsPage() {
             })
             .eq('id', bill_id)
 
-          // If previous month's bill is now paid in full, update current month's bill to remove remaining balance
-          if (newStatus === 'paid') {
-            const currentDate = new Date()
-            const currentMonth = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0')
+          // Update next month's bill with remaining balance (including overpayments)
+          // Calculate the actual remaining balance after this payment
+          const actualRemainingBalance = totalBill - totalPaid
+          
+          // Get next month's bill for the same tenant
+          const billDate = new Date(bill.due_date)
+          const nextMonth = new Date(billDate.getFullYear(), billDate.getMonth() + 2, 1) // Next month
+          const nextMonthStr = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth() + 1).padStart(2, '0')
+          
+          const { data: nextMonthBills } = await supabase
+            .from('bills')
+            .select('*')
+            .eq('tenant_id', bill.tenant_id)
+            .ilike('description', `%${nextMonthStr}%`)
+
+          if (nextMonthBills && nextMonthBills.length > 0) {
+            const nextBill = nextMonthBills[0]
             
-            // Get current month's bill for the same tenant
-            const { data: currentMonthBills } = await supabase
-              .from('bills')
+            // Get bill items for next month's bill
+            const { data: nextBillItems } = await supabase
+              .from('bill_items')
               .select('*')
-              .eq('tenant_id', bill.tenant_id)
-              .ilike('description', `%${currentMonth}%`)
+              .eq('bill_id', nextBill.id)
 
-            if (currentMonthBills && currentMonthBills.length > 0) {
-              const currentBill = currentMonthBills[0]
+            // Check if next bill has existing remaining balance item
+            const existingRemainingBalanceItem = nextBillItems?.find(item => item.item_type === 'remaining_balance')
+            
+            if (actualRemainingBalance !== 0) {
+              // If there's an existing remaining balance item, update it
+              if (existingRemainingBalanceItem) {
+                await supabase
+                  .from('bill_items')
+                  .update({ 
+                    amount: actualRemainingBalance,
+                    details: actualRemainingBalance > 0 
+                      ? 'Remaining Balance from Previous Month' 
+                      : 'Credit from Overpayment Last Month'
+                  })
+                  .eq('id', existingRemainingBalanceItem.id)
+              } else {
+                // If there's no existing remaining balance item, create one
+                await supabase
+                  .from('bill_items')
+                  .insert({
+                    bill_id: nextBill.id,
+                    item_type: 'remaining_balance',
+                    amount: actualRemainingBalance,
+                    details: actualRemainingBalance > 0 
+                      ? 'Remaining Balance from Previous Month' 
+                      : 'Credit from Overpayment Last Month',
+                    created_at: new Date().toISOString()
+                  })
+              }
               
-              // Get bill items for current month's bill
-              const { data: currentBillItems } = await supabase
-                .from('bill_items')
-                .select('*')
-                .eq('bill_id', currentBill.id)
-
-              // Check if current bill has remaining balance from previous month
-              const remainingBalanceItem = currentBillItems?.find(item => item.item_type === 'remaining_balance')
-              
-              if (remainingBalanceItem) {
-                // Calculate new bill amount without remaining balance
-                const newBillAmount = currentBill.amount - remainingBalanceItem.amount
+              // Update the bill amount to include the remaining balance
+              const nextBillItemsSafe = nextBillItems || []
+              const totalBillItems = nextBillItemsSafe.filter(item => item.item_type !== 'remaining_balance')
+                .reduce((sum, item) => sum + item.amount, 0) + actualRemainingBalance
                 
-                // Update bill amount
+              await supabase
+                .from('bills')
+                .update({ 
+                  amount: totalBillItems,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', nextBill.id)
+                
+              console.log('Next month bill updated to include remaining balance/credit')
+            } else {
+              // If remaining balance is zero and there's an existing item, remove it
+              if (existingRemainingBalanceItem) {
+                // Calculate new bill amount without remaining balance
+                const nextBillItemsSafe = nextBillItems || []
+                const totalBillItems = nextBillItemsSafe.filter(item => item.item_type !== 'remaining_balance')
+                  .reduce((sum, item) => sum + item.amount, 0)
+                
                 await supabase
                   .from('bills')
                   .update({ 
-                    amount: newBillAmount,
+                    amount: totalBillItems,
                     updated_at: new Date().toISOString()
                   })
-                  .eq('id', currentBill.id)
+                  .eq('id', nextBill.id)
 
-                // Remove remaining balance item from bill items
                 await supabase
                   .from('bill_items')
                   .delete()
-                  .eq('id', remainingBalanceItem.id)
-
-                console.log('Current month bill updated to remove remaining balance from previous month')
+                  .eq('id', existingRemainingBalanceItem.id)
+                  
+                console.log('Next month bill updated to remove remaining balance')
               }
             }
           }
@@ -445,9 +493,18 @@ export default function PaymentsPage() {
                                   const bill = bills.find(b => b.id === payment.bill_id)
                                   
                                   if (bill) {
+                                    const { data: billItems } = await supabase
+                                      .from('bill_items')
+                                      .select('*')
+                                      .eq('bill_id', bill.id)
+                                      
+                                    const totalBill = billItems && billItems.length > 0 
+                                      ? billItems.reduce((sum, item) => sum + item.amount, 0) 
+                                      : bill.amount
+
                                     let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
                                     
-                                    if (totalPaid >= bill.amount) {
+                                    if (totalPaid >= totalBill) {
                                       newStatus = 'paid'
                                     } else if (totalPaid > 0) {
                                       newStatus = 'partial'
@@ -877,16 +934,25 @@ export default function PaymentsPage() {
                                             const totalPaid = billPayments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0
                                             const bill = bills.find(b => b.id === payment.bill_id)
                                             
-                                            if (bill) {
-                                              let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
-                                              
-                                              if (totalPaid >= bill.amount) {
-                                                newStatus = 'paid'
-                                              } else if (totalPaid > 0) {
-                                                newStatus = 'partial'
-                                              } else if (new Date() > new Date(bill.due_date)) {
-                                                newStatus = 'overdue'
-                                              }
+                                  if (bill) {
+                                    const { data: billItems } = await supabase
+                                      .from('bill_items')
+                                      .select('*')
+                                      .eq('bill_id', bill.id)
+                                      
+                                    const totalBill = billItems && billItems.length > 0 
+                                      ? billItems.reduce((sum, item) => sum + item.amount, 0) 
+                                      : bill.amount
+
+                                    let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
+                                    
+                                    if (totalPaid >= totalBill) {
+                                      newStatus = 'paid'
+                                    } else if (totalPaid > 0) {
+                                      newStatus = 'partial'
+                                    } else if (new Date() > new Date(bill.due_date)) {
+                                      newStatus = 'overdue'
+                                    }
 
                                               await supabase
                                                 .from('bills')

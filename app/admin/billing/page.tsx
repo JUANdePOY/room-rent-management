@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { BillingRate, ElectricReading, Tenant, Room, Bill, BillItem } from '../../../types'
-import { calculateBillItems } from '../../../lib/billingUtils'
+import { BillingRate, ElectricReading, Tenant, Room, Bill, BillItem, Payment } from '../../../types'
+import { 
+  calculateBillItems, 
+  calculateTotalBill, 
+  calculateRemainingBill,
+  calculateTotalPaid,
+  calculateBillStatus
+} from '../../../lib/billingUtils'
 
 export default function BillingPage() {
   const [billingRates, setBillingRates] = useState<BillingRate[]>([])
@@ -252,44 +258,67 @@ export default function BillingPage() {
          const wifiAmount = billingRate.wifi_rate
          const rentAmount = room.rent_amount
          
-          // Calculate remaining balance from previous month
-          const prevMonth = getPreviousMonth(generateMonth)
-          const previousBills = await supabase
-            .from('bills')
-            .select('*')
-            .eq('tenant_id', tenant.id)
-            .ilike('description', `%${prevMonth}%`)
-         
-          let remainingBalance = 0
-          if (previousBills.data && previousBills.data.length > 0) {
-            const previousBill = previousBills.data[0]
-            console.log('Previous bill found:', previousBill)
+            const prevMonth = getPreviousMonth(generateMonth)
+            let remainingBalance = 0
+            // Get previous month's bill specifically
+            const previousBills = await supabase
+              .from('bills')
+              .select('*')
+              .eq('tenant_id', tenant.id)
+              .ilike('description', `%${prevMonth}%`)
             
-            const previousBillPayments = await supabase
-              .from('payments')
-              .select('amount_paid')
-              .eq('bill_id', previousBill.id)
-              .eq('status', 'accepted')
-            
-            console.log('Previous bill payments:', previousBillPayments.data)
-            
-            const totalPaid = previousBillPayments.data?.reduce((sum, payment) => sum + payment.amount_paid, 0) || 0
-            remainingBalance = previousBill.amount - totalPaid // Allow negative values for overpayments
-            console.log('Total paid for previous bill:', totalPaid)
-            console.log('Remaining balance from previous bill:', remainingBalance)
-          } else {
-            console.log('No previous bill found for tenant:', tenant.id, 'in month:', prevMonth)
-          }
-         
-          const totalAmount = wifiAmount + waterAmount + electricAmount + rentAmount + remainingBalance
-          console.log('Calculated total bill amount:', {
-            wifi: wifiAmount,
-            water: waterAmount,
-            electricity: electricAmount,
-            rent: rentAmount,
-            remainingBalance,
-            total: totalAmount
-          })
+            if (previousBills.data && previousBills.data.length > 0) {
+              const previousBill = previousBills.data[0]
+              console.log('Previous bill found:', previousBill)
+              
+              // Get bill items for previous bill to calculate accurate remaining balance
+              const previousBillItems = await supabase
+                .from('bill_items')
+                .select('*')
+                .eq('bill_id', previousBill.id)
+              
+              // Get all accepted payments for previous bill
+              const previousBillPayments = await supabase
+                .from('payments')
+                .select('*')
+                .eq('bill_id', previousBill.id)
+                .eq('status', 'accepted')
+              
+              console.log('Previous bill payments:', previousBillPayments.data)
+              
+              // Calculate remaining balance using enhanced function
+              const billWithItems = {
+                ...previousBill,
+                items: previousBillItems.data || []
+              }
+              
+               remainingBalance = calculateRemainingBill(billWithItems, previousBillPayments.data || [])
+               const totalBillFromItems = calculateTotalBill(billWithItems.items)
+               const totalPaid = calculateTotalPaid(billWithItems, previousBillPayments.data || [])
+               console.log('=== Previous Bill Details ===')
+               console.log('Bill ID:', previousBill.id)
+               console.log('Bill Amount:', previousBill.amount)
+               console.log('Total Bill from Items:', totalBillFromItems)
+               console.log('Total Paid:', totalPaid)
+               console.log('Remaining Balance:', remainingBalance)
+               console.log('Bill Items:', billWithItems.items)
+            } else {
+              console.log('No previous bill found for tenant:', tenant.id, 'in month:', prevMonth)
+            }
+          
+           const totalAmount = wifiAmount + waterAmount + electricAmount + rentAmount + remainingBalance
+            const calculatedBillItems = calculateBillItems('temp', rentAmount, electricAmount, waterAmount, wifiAmount, remainingBalance)
+            const calculatedTotalFromItems = calculateTotalBill(calculatedBillItems)
+            console.log('Calculated total bill amount:', {
+              wifi: wifiAmount,
+              water: waterAmount,
+              electricity: electricAmount,
+              rent: rentAmount,
+              remainingBalance,
+              totalFromCalculation: totalAmount,
+              totalFromItems: calculatedTotalFromItems,
+              billItems: calculatedBillItems
+            })
 
         const dueDate = new Date(generateMonth + '-01')
         dueDate.setMonth(dueDate.getMonth() + 1)
@@ -318,7 +347,7 @@ export default function BillingPage() {
         if (billData && billData.length > 0) {
           const billId = billData[0].id
           
-          // Calculate bill items using centralized function
+           // Calculate bill items using centralized function
           let billItems: Omit<BillItem, 'id' | 'created_at'>[] = calculateBillItems(
             billId,
             rentAmount,
@@ -327,6 +356,10 @@ export default function BillingPage() {
             wifiAmount,
             remainingBalance
           )
+          
+          console.log('=== Bill Items Generation ===')
+          console.log('Remaining Balance Passed to calculateBillItems:', remainingBalance)
+          console.log('Generated Bill Items:', billItems)
 
           // Update item details with specific information
            billItems = billItems.map(item => {

@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { Bill, Tenant, Room, BillItem, Payment } from '../../../types'
-import { calculateTotalBill, calculateRemainingBill, calculateTotalPaid } from '../../../lib/billingUtils'
+import { 
+  calculateTotalBill, 
+  calculateRemainingBill, 
+  calculateTotalPaid,
+  calculateAdminBillingSummary,
+  calculateMonthlyAdminSummary
+} from '../../../lib/billingUtils'
 
 export default function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([])
@@ -41,12 +47,78 @@ export default function BillsPage() {
 
     if (billsData.data) {
       const billsWithItems = billsData.data.map(bill => {
-        const items = billItemsData.data?.filter(item => item.bill_id === bill.id) || []
+        let items = billItemsData.data?.filter(item => item.bill_id === bill.id) || []
         const totalPaid = calculateTotalPaid(bill, paymentsData.data || [])
         const remaining = calculateRemainingBill(bill, paymentsData.data || [])
 
+        // Dynamically calculate and update the remaining balance item based on actual payments
+        // This ensures that even if the bill was generated earlier, the remaining balance is accurate
+        const billDate = new Date(bill.due_date)
+        const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
+        
+        // Get previous month's bill to calculate remaining balance
+        const prevMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
+        prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
+        const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+        
+        const previousBills = billsData.data.filter(b => {
+          const bDate = new Date(b.due_date)
+          const bMonth = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`
+          return b.tenant_id === bill.tenant_id && bMonth === prevMonth
+        })
+
+        if (previousBills.length > 0) {
+          const previousBill = previousBills[0]
+          const previousBillItems = billItemsData.data?.filter(item => item.bill_id === previousBill.id) || []
+          const billWithItems = {
+            ...previousBill,
+            items: previousBillItems
+          }
+          
+          const actualRemainingBalance = calculateRemainingBill(billWithItems, paymentsData.data || [])
+          
+          // Find existing remaining balance item in current bill
+          const existingRemainingBalanceItem = items.find(item => item.item_type === 'remaining_balance')
+          
+          if (actualRemainingBalance !== 0) {
+            // If actual remaining balance is different from what's stored, update it
+            if (existingRemainingBalanceItem) {
+              if (existingRemainingBalanceItem.amount !== actualRemainingBalance) {
+                existingRemainingBalanceItem.amount = actualRemainingBalance
+                existingRemainingBalanceItem.details = actualRemainingBalance > 0 
+                  ? 'Remaining Balance from Previous Month' 
+                  : 'Credit from Overpayment Last Month'
+              }
+            } else {
+              // If there's no existing remaining balance item, add one
+              items = [
+                ...items,
+                {
+                  id: `temp-${Date.now()}-${bill.id}`,
+                  bill_id: bill.id,
+                  item_type: 'remaining_balance',
+                  amount: actualRemainingBalance,
+                  details: actualRemainingBalance > 0 
+                    ? 'Remaining Balance from Previous Month' 
+                    : 'Credit from Overpayment Last Month',
+                  created_at: new Date().toISOString()
+                }
+              ]
+            }
+          } else {
+            // If remaining balance is now zero and there's an existing item, remove it
+            if (existingRemainingBalanceItem) {
+              items = items.filter(item => item.id !== existingRemainingBalanceItem.id)
+            }
+          }
+        }
+
+        // Recalculate bill amount based on current items
+        const calculatedAmount = calculateTotalBill(items)
+        
         return {
           ...bill,
+          amount: calculatedAmount,
           items,
           totalPaid,
           remaining,
@@ -64,38 +136,11 @@ export default function BillsPage() {
   const currentYear = new Date().getFullYear()
   const monthlySummaries = Array.from({ length: 12 }, (_, index) => {
     const monthKey = `${currentYear}-${String(index + 1).padStart(2, '0')}`
-    const monthDate = new Date(currentYear, index, 1)
-    const monthName = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' })
-    
-    // Calculate stats for this month
-    const monthBills = bills.filter(bill => {
-      const billDate = new Date(bill.due_date)
-      const billMonthKey = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
-      return billMonthKey === monthKey
-    })
-
-     // Calculate total revenue as sum of accepted payments for this month
-     const monthPayments = payments.filter(payment => {
-       if (payment.status !== 'accepted') return false
-       const paymentDate = new Date(payment.payment_date)
-       const paymentMonthKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`
-       return paymentMonthKey === monthKey
-     })
-     
-     const totalRevenue = monthPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-    const statusCounts = monthBills.reduce((acc, bill) => {
-      acc[bill.status]++
-      return acc
-    }, { paid: 0, partial: 0, pending: 0, overdue: 0 })
-
-    return {
-      monthKey,
-      monthName,
-      totalRevenue,
-      statusCounts,
-      totalBills: monthBills.length,
-    }
+    return calculateMonthlyAdminSummary(bills, payments, monthKey)
   })
+
+  // Calculate overall billing summary
+  const billingSummary = calculateAdminBillingSummary(bills, payments)
 
   const handleViewMonthDetails = (monthKey: string) => {
     setSelectedMonth(monthKey)
@@ -249,6 +294,84 @@ export default function BillsPage() {
   return (
     <div className="space-y-6">
 
+      {/* Overall Billing Summary Cards */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Overall Billing Summary</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Bills</dt>
+                  <dd className="text-lg font-medium text-gray-900">{billingSummary.totalBills}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Amount</dt>
+                  <dd className="text-lg font-medium text-gray-900">₱{billingSummary.totalAmount.toFixed(2)}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Paid</dt>
+                  <dd className="text-lg font-medium text-gray-900">₱{billingSummary.totalPaid.toFixed(2)}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className={`w-8 h-8 ${billingSummary.totalRemaining > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} rounded-full flex items-center justify-center`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Remaining Balance</dt>
+                  <dd className={`text-lg font-medium ${billingSummary.totalRemaining > 0 ? 'text-red-600' : 'text-green-600'}`}>₱{billingSummary.totalRemaining.toFixed(2)}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Monthly Summary Cards */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Monthly Summary</h2>
@@ -269,7 +392,7 @@ export default function BillsPage() {
                 {/* Total Revenue */}
                 <div className="mb-1">
                   <p className="text-gray-500 text-xs mb-0.5">Revenue</p>
-                  <p className="text-sm font-semibold text-gray-900">₱{summary.totalRevenue.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-gray-900">₱{summary.revenue.toFixed(2)}</p>
                 </div>
 
                 {/* Total Bills */}
@@ -381,16 +504,18 @@ export default function BillsPage() {
                             {room?.room_number}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            ₱{bill.amount.toFixed(2)}
+                            ₱{(bill.items && bill.items.length > 0 
+                              ? bill.items.reduce((sum, item) => sum + item.amount, 0) 
+                              : bill.amount).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             ₱{(bill as any).totalPaid?.toFixed(2) || '0.00'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`font-medium ₱{
-                              (bill as any).remaining > 0 ? 'text-red-600' : 'text-green-600'
+                             <span className={`font-medium ₱{
+                              calculateRemainingBill(bill, payments) > 0 ? 'text-red-600' : 'text-green-600'
                             }`}>
-                              ₱{(bill as any).remaining?.toFixed(2) || bill.amount.toFixed(2)}
+                              ₱{calculateRemainingBill(bill, payments).toFixed(2)}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -419,9 +544,10 @@ export default function BillsPage() {
                                   View Items ({bill.items.length})
                                 </summary>
                                 <div className="mt-2 text-sm text-gray-600">
-                                  {bill.items.map((item, index) => {
+                                  {bill.items?.map((item, index) => {
                                     // Calculate remaining balance per item based on payment allocation
-                                    const paymentAllocation = item.amount / bill.amount
+                                    const totalBillAmount = (bill.items || []).reduce((sum, i) => sum + i.amount, 0)
+                                    const paymentAllocation = item.amount / totalBillAmount
                                     const itemPaid = (bill as any).totalPaid * paymentAllocation
                                     const itemRemaining = item.amount - itemPaid
                                     
@@ -438,7 +564,7 @@ export default function BillsPage() {
                                     )
                                   })}
                                   <div className="border-t border-gray-200 mt-2 pt-2">
-                                    <strong>Total:</strong> ₱{bill.amount.toFixed(2)}
+                                    <strong>Total:</strong> ₱{bill.items.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
                                     <div className="text-xs text-gray-500">
                                       Paid: ₱{(bill as any).totalPaid.toFixed(2)} | Remaining: <span className={(bill as any).remaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{(bill as any).remaining.toFixed(2)}</span>
                                     </div>

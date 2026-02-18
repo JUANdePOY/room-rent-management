@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Tenant, Room, Bill, Payment } from '../../types'
+import { calculateTotalBill, calculateRemainingBill, calculateTotalPaid } from '../../lib/billingUtils'
 
 export default function TenantDashboard() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
@@ -31,23 +32,115 @@ export default function TenantDashboard() {
     if (tenantData) {
       setTenant(tenantData)
 
-      const [roomData, billsData, paymentsData] = await Promise.all([
+      const [roomData, billsData, billItemsData, paymentsData] = await Promise.all([
         supabase.from('rooms').select('*').eq('id', tenantData.room_id).single(),
         supabase.from('bills').select('*').eq('tenant_id', tenantData.id),
+        supabase.from('bill_items').select('*'),
         supabase.from('payments').select('*').eq('tenant_id', tenantData.id),
       ])
 
       if (roomData.data) setRoom(roomData.data)
-      if (billsData.data) setBills(billsData.data)
+      if (billsData.data) {
+        const billsWithItems = billsData.data.map(bill => {
+          let items = billItemsData.data?.filter(item => item.bill_id === bill.id) || []
+          const totalPaid = calculateTotalPaid(bill, paymentsData.data || [])
+          const remaining = calculateRemainingBill(bill, paymentsData.data || [])
+
+          // Dynamically calculate and update the remaining balance item based on actual payments
+          // This ensures that even if the bill was generated earlier, the remaining balance is accurate
+          const billDate = new Date(bill.due_date)
+          const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
+          
+          // Get previous month's bill to calculate remaining balance
+          const prevMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
+          prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
+          const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+          
+          const previousBills = billsData.data.filter(b => {
+            const bDate = new Date(b.due_date)
+            const bMonth = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`
+            return b.tenant_id === bill.tenant_id && bMonth === prevMonth
+          })
+
+          if (previousBills.length > 0) {
+            const previousBill = previousBills[0]
+            const previousBillItems = billItemsData.data?.filter(item => item.bill_id === previousBill.id) || []
+            const billWithItems = {
+              ...previousBill,
+              items: previousBillItems
+            }
+            
+            const actualRemainingBalance = calculateRemainingBill(billWithItems, paymentsData.data || [])
+            
+            // Find existing remaining balance item in current bill
+            const existingRemainingBalanceItem = items.find(item => item.item_type === 'remaining_balance')
+            
+            if (actualRemainingBalance !== 0) {
+              // If actual remaining balance is different from what's stored, update it
+              if (existingRemainingBalanceItem) {
+                if (existingRemainingBalanceItem.amount !== actualRemainingBalance) {
+                  existingRemainingBalanceItem.amount = actualRemainingBalance
+                  existingRemainingBalanceItem.details = actualRemainingBalance > 0 
+                    ? 'Remaining Balance from Previous Month' 
+                    : 'Credit from Overpayment Last Month'
+                }
+              } else {
+                // If there's no existing remaining balance item, add one
+                items = [
+                  ...items,
+                  {
+                    id: `temp-${Date.now()}-${bill.id}`,
+                    bill_id: bill.id,
+                    item_type: 'remaining_balance',
+                    amount: actualRemainingBalance,
+                    details: actualRemainingBalance > 0 
+                      ? 'Remaining Balance from Previous Month' 
+                      : 'Credit from Overpayment Last Month',
+                    created_at: new Date().toISOString()
+                  }
+                ]
+              }
+            } else {
+              // If remaining balance is now zero and there's an existing item, remove it
+              if (existingRemainingBalanceItem) {
+                items = items.filter(item => item.id !== existingRemainingBalanceItem.id)
+              }
+            }
+          }
+
+          // Recalculate bill amount based on current items
+          const calculatedAmount = calculateTotalBill(items)
+          
+          return {
+            ...bill,
+            amount: calculatedAmount,
+            items,
+            totalPaid,
+            remaining,
+          }
+        })
+        setBills(billsWithItems)
+      }
       if (paymentsData.data) setPayments(paymentsData.data)
     }
 
     setLoading(false)
   }
 
-  const pendingBills = bills.filter(b => (b.remaining || 0) > 0)
-  const totalPending = pendingBills.reduce((sum, b) => sum + b.amount, 0)
-  const totalPaid = payments.filter(p => p.status === 'accepted').reduce((sum, p) => sum + p.amount_paid, 0)
+  const currentDate = new Date()
+  const currentMonth = currentDate.getMonth()
+  const currentYear = currentDate.getFullYear()
+
+  // Get current month's bill
+  const currentMonthBill = bills.find(bill => {
+    const billDate = new Date(bill.due_date)
+    return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear
+  })
+
+  // Calculate current month's total bill amount
+  const currentMonthTotalBill = currentMonthBill 
+    ? calculateTotalBill(currentMonthBill.items || [])
+    : 0
 
   if (loading) {
     return (
@@ -59,21 +152,18 @@ export default function TenantDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
         <div className="card">
-          <h3 className="text-lg font-semibold mb-2 text-gray-700">Total Rent</h3>
-          <p className="text-3xl font-bold text-blue-600">₱{room?.rent_amount.toFixed(2) || '0.00'}</p>
-          <p className="text-sm text-gray-500 mt-1">Per Month</p>
-        </div>
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-2 text-gray-700">Pending Bills</h3>
-          <p className="text-3xl font-bold text-yellow-600">₱{totalPending.toFixed(2)}</p>
-          <p className="text-sm text-gray-500 mt-1">{pendingBills.length} Bills</p>
-        </div>
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-2 text-gray-700">Total Paid</h3>
-          <p className="text-3xl font-bold text-green-600">₱{totalPaid.toFixed(2)}</p>
-          <p className="text-sm text-gray-500 mt-1">This Year</p>
+          <h3 className="text-lg font-semibold mb-2 text-gray-700">
+            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Total Bill
+          </h3>
+          <p className="text-3xl font-bold text-blue-600">₱{currentMonthTotalBill.toFixed(2)}</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {currentMonthBill 
+              ? `Status: ${currentMonthBill.status}`
+              : 'No bill generated yet'
+            }
+          </p>
         </div>
       </div>
 

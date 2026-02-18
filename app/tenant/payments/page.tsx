@@ -104,11 +104,18 @@ export default function TenantPaymentsPage() {
     const bill = bills.find(b => b.id === billId)
     if (!bill) return 0
     
+    const billItemsForBill = billItems.filter(item => item.bill_id === billId)
     const billPayments = payments.filter(payment => 
       payment.bill_id === billId && payment.status === 'accepted'
     )
+    
+    const totalBill = billItemsForBill.length > 0 
+      ? billItemsForBill.reduce((sum, item) => sum + item.amount, 0) 
+      : bill.amount
+    
     const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-    return bill.amount - totalPaid
+    
+    return totalBill - totalPaid
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,9 +159,18 @@ export default function TenantPaymentsPage() {
         const bill = bills.find(b => b.id === bill_id)
         
         if (bill) {
+          const { data: billItems } = await supabase
+            .from('bill_items')
+            .select('*')
+            .eq('bill_id', bill.id)
+            
+          const totalBill = billItems && billItems.length > 0 
+            ? billItems.reduce((sum, item) => sum + item.amount, 0) 
+            : bill.amount
+
           let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
           
-          if (totalPaid >= bill.amount) {
+          if (totalPaid >= totalBill) {
             newStatus = 'paid'
           } else if (totalPaid > 0) {
             newStatus = 'partial'
