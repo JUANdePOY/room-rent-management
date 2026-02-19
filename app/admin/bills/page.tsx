@@ -10,6 +10,7 @@ import {
   calculateAdminBillingSummary,
   calculateMonthlyAdminSummary
 } from '../../../lib/billingUtils'
+import { calculateAccurateBillingSummary } from '../../../lib/accurateBillingUtils'
 
 export default function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([])
@@ -147,6 +148,7 @@ export default function BillsPage() {
 
   // Calculate overall billing summary
   const billingSummary = calculateAdminBillingSummary(bills, payments)
+  const accurateBillingSummary = calculateAccurateBillingSummary(bills, payments)
 
   const handleViewMonthDetails = (monthKey: string) => {
     setSelectedMonth(monthKey)
@@ -334,7 +336,7 @@ export default function BillsPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Amount</dt>
-                  <dd className="text-lg font-medium text-gray-900">₱{billingSummary.totalAmount.toFixed(2)}</dd>
+                  <dd className="text-lg font-medium text-gray-900">₱{accurateBillingSummary.totalAmount.toFixed(2)}</dd>
                 </dl>
               </div>
             </div>
@@ -352,7 +354,7 @@ export default function BillsPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Paid</dt>
-                  <dd className="text-lg font-medium text-gray-900">₱{billingSummary.totalPaid.toFixed(2)}</dd>
+                  <dd className="text-lg font-medium text-gray-900">₱{accurateBillingSummary.totalPaid.toFixed(2)}</dd>
                 </dl>
               </div>
             </div>
@@ -361,7 +363,7 @@ export default function BillsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className={`w-8 h-8 ${billingSummary.totalRemaining > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} rounded-full flex items-center justify-center`}>
+                <div className={`w-8 h-8 ${accurateBillingSummary.remainingBalance > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} rounded-full flex items-center justify-center`}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -370,7 +372,7 @@ export default function BillsPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Remaining Balance</dt>
-                  <dd className={`text-lg font-medium ${billingSummary.totalRemaining > 0 ? 'text-red-600' : 'text-green-600'}`}>₱{billingSummary.totalRemaining.toFixed(2)}</dd>
+                  <dd className={`text-lg font-medium ${accurateBillingSummary.remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>₱{accurateBillingSummary.remainingBalance.toFixed(2)}</dd>
                 </dl>
               </div>
             </div>
@@ -557,20 +559,20 @@ export default function BillsPage() {
                                     const itemPaid = (bill as any).totalPaid * paymentAllocation
                                     const itemRemaining = item.amount - itemPaid
                                     
-                                    // Enhanced electricity bill item with actual consumption data
+                                     // Enhanced electricity bill item with actual consumption data
                                     if (item.item_type === 'electricity') {
                                       const billDate = new Date(bill.due_date)
                                       const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
-                                      const prevMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
-                                      prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
-                                      const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+                                      const nextMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
+                                      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1)
+                                      const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`
                                       
-                                      // Get current and previous month's readings
+                                      // Get current and next month's readings
                                       const currentReading = electricReadings.find(r => 
                                         r.room_id === bill.room_id && r.month_year === billMonth
                                       )
-                                      const previousReading = electricReadings.find(r => 
-                                        r.room_id === bill.room_id && r.month_year === prevMonth
+                                      const nextReading = electricReadings.find(r => 
+                                        r.room_id === bill.room_id && r.month_year === nextMonth
                                       )
                                       
                                       // Get billing rate for current month
@@ -581,19 +583,12 @@ export default function BillsPage() {
                                       let usage = 0
                                       let rate = 0
                                       let currentReadingVal = 0
-                                      let previousReadingVal = 0
+                                      let nextReadingVal = 0
                                       
-                                      const roomData = rooms.find(r => r.id === bill.room_id)
-                                      
-                                      if (currentReading && previousReading) {
+                                      if (currentReading && nextReading) {
                                         currentReadingVal = currentReading.reading
-                                        previousReadingVal = previousReading.reading
-                                        usage = currentReadingVal - previousReadingVal
-                                      } else if (currentReading && !previousReading && roomData?.initial_electric_reading !== undefined) {
-                                        // First month billing - use initial reading
-                                        currentReadingVal = currentReading.reading
-                                        previousReadingVal = roomData.initial_electric_reading
-                                        usage = currentReadingVal - previousReadingVal
+                                        nextReadingVal = nextReading.reading
+                                        usage = nextReadingVal - currentReadingVal
                                       }
                                       
                                       if (billingRate) {

@@ -300,9 +300,13 @@ export default function TenantBillsPage() {
                       })}
                     </p>
                   </div>
-                  <div className="text-center md:text-right w-full md:w-auto">
+                   <div className="text-center md:text-right w-full md:w-auto">
                     <p className="text-sm text-gray-600">Total Bill</p>
                     <p className="text-3xl font-bold text-gray-900">₱{bill.amount.toFixed(2)}</p>
+                    <p className="text-sm text-gray-600 mt-2">Remaining Bill</p>
+                     <p className={`text-2xl font-bold ${calculateRemainingBill(bill, payments) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₱{calculateRemainingBill(bill, payments).toFixed(2)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -314,7 +318,7 @@ export default function TenantBillsPage() {
                   <div className="flex justify-between text-sm font-medium text-gray-700 mb-2">
                     <span>Payment Progress</span>
                     <span>
-                      {Math.round(((bill as any).totalPaid / bill.amount) * 100)}% Paid
+                      {Math.round((calculateTotalPaid(bill, payments) / bill.amount) * 100)}% Paid
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
@@ -324,11 +328,11 @@ export default function TenantBillsPage() {
                         bill.status === 'overdue' ? 'bg-red-500' :
                         bill.status === 'partial' ? 'bg-yellow-500' : 'bg-blue-500'
                       }`}
-                      style={{ width: `${Math.min(((bill as any).totalPaid / bill.amount) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((calculateTotalPaid(bill, payments) / bill.amount) * 100, 100)}%` }}
                     ></div>
                   </div>
                   <div className="text-sm text-gray-500 mt-2">
-                    Paid: ₱{(bill as any).totalPaid.toFixed(2)}
+                    Paid: ₱{calculateTotalPaid(bill, payments).toFixed(2)}
                   </div>
                 </div>
 
@@ -342,21 +346,21 @@ export default function TenantBillsPage() {
                         const itemPaid = (bill as any).totalPaid * paymentAllocation
                         const itemRemaining = item.amount - itemPaid
                         
-                        // Enhanced electricity bill item with actual data
+                          // Enhanced electricity bill item with actual data
                         if (item.item_type === 'electricity') {
                           // Calculate actual consumption based on electric readings and billing rates
                           const billDate = new Date(bill.due_date)
                           const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
-                          const prevMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
-                          prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
-                          const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
+                          const nextMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
+                          nextMonthDate.setMonth(nextMonthDate.getMonth() + 1)
+                          const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`
                           
-                          // Get current and previous month's readings
+                          // Get current and next month's readings
                           const currentReading = electricReadings.find(r => 
                             r.room_id === room?.id && r.month_year === billMonth
                           )
-                          const previousReading = electricReadings.find(r => 
-                            r.room_id === room?.id && r.month_year === prevMonth
+                          const nextReading = electricReadings.find(r => 
+                            r.room_id === room?.id && r.month_year === nextMonth
                           )
                           
                           // Get billing rate for current month
@@ -367,17 +371,12 @@ export default function TenantBillsPage() {
                           let usage = 0
                           let rate = 0
                           let currentReadingVal = 0
-                          let previousReadingVal = 0
+                          let nextReadingVal = 0
                           
-                          if (currentReading && previousReading) {
+                          if (currentReading && nextReading) {
                             currentReadingVal = currentReading.reading
-                            previousReadingVal = previousReading.reading
-                            usage = currentReadingVal - previousReadingVal
-                          } else if (currentReading && !previousReading && room?.initial_electric_reading !== undefined) {
-                            // First month billing - use initial reading
-                            currentReadingVal = currentReading.reading
-                            previousReadingVal = room.initial_electric_reading
-                            usage = currentReadingVal - previousReadingVal
+                            nextReadingVal = nextReading.reading
+                            usage = nextReadingVal - currentReadingVal
                           }
                           
                           if (billingRate) {
@@ -406,12 +405,12 @@ export default function TenantBillsPage() {
                               {usage > 0 && rate > 0 && (
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div className="bg-white p-2 rounded">
-                                    <span className="text-gray-500 block">Previous Reading</span>
-                                    <span className="font-medium">{previousReadingVal.toFixed(2)} kWh</span>
-                                  </div>
-                                  <div className="bg-white p-2 rounded">
                                     <span className="text-gray-500 block">Current Reading</span>
                                     <span className="font-medium">{currentReadingVal.toFixed(2)} kWh</span>
+                                  </div>
+                                  <div className="bg-white p-2 rounded">
+                                    <span className="text-gray-500 block">Next Reading</span>
+                                    <span className="font-medium">{nextReadingVal.toFixed(2)} kWh</span>
                                   </div>
                                   <div className="bg-white p-2 rounded">
                                     <span className="text-gray-500 block">Consumption</span>
@@ -645,8 +644,8 @@ export default function TenantBillsPage() {
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Remaining</span>
-                      <span className={(bill as any).remaining > 0 ? 'text-red-600' : 'text-green-600'}>
-                        ₱{(bill as any).remaining.toFixed(2)}
+                      <span className={calculateRemainingBill(bill, payments) > 0 ? 'text-red-600' : 'text-green-600'}>
+                        ₱{calculateRemainingBill(bill, payments).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -682,7 +681,7 @@ export default function TenantBillsPage() {
                           setSelectedBill(bill)
                           setPaymentForm(prev => ({
                             ...prev,
-                            amountPaid: bill.amount
+                            amountPaid: calculateRemainingBill(bill, payments)
                           }))
                           setShowPaymentModal(true)
                         }}
@@ -746,9 +745,9 @@ export default function TenantBillsPage() {
                   <span className="text-lg font-bold text-green-600">₱{(selectedBill as any).totalPaid.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-sm font-medium text-gray-700">Remaining Balance</span>
-                  <span className="text-lg font-bold text-red-600">₱{(selectedBill as any).remaining.toFixed(2)}</span>
-                </div>
+                    <span className="text-sm font-medium text-gray-700">Remaining Balance</span>
+                    <span className="text-lg font-bold text-red-600">₱{calculateRemainingBill(selectedBill, payments).toFixed(2)}</span>
+                  </div>
               </div>
 
               <div>
@@ -758,7 +757,6 @@ export default function TenantBillsPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                      max={selectedBill.remaining || 0}
                     value={paymentForm.amountPaid || ''}
                     onChange={(e) => setPaymentForm(prev => ({
                       ...prev,
@@ -768,9 +766,6 @@ export default function TenantBillsPage() {
                     required
                     placeholder="Enter amount"
                   />
-                  <div className="text-sm text-gray-600">
-                    Maximum payment: ₱{(selectedBill as any).remaining.toFixed(2)}
-                  </div>
                 </div>
               </div>
 
@@ -811,14 +806,14 @@ export default function TenantBillsPage() {
                         <span>Total:</span>
                         <span>₱{selectedBill.amount.toFixed(2)}</span>
                       </div>
-                      <div className="text-xs text-gray-600">
-                        Paid: ₱{(selectedBill as any).totalPaid.toFixed(2)} | Remaining: <span className={(selectedBill as any).remaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{(selectedBill as any).remaining.toFixed(2)}</span>
-                        {paymentForm.amountPaid > 0 && (
-                          <span className="ml-2">
-                            After Payment: <span className={(selectedBill as any).remaining - paymentForm.amountPaid > 0 ? 'text-red-600' : 'text-green-600'}>₱{((selectedBill as any).remaining - paymentForm.amountPaid).toFixed(2)}</span>
-                          </span>
-                        )}
-                      </div>
+                        <div className="text-xs text-gray-600">
+                          Paid: ₱{calculateTotalPaid(selectedBill, payments).toFixed(2)} | Remaining: <span className={calculateRemainingBill(selectedBill, payments) > 0 ? 'text-red-600' : 'text-green-600'}>₱{calculateRemainingBill(selectedBill, payments).toFixed(2)}</span>
+                          {paymentForm.amountPaid > 0 && (
+                            <span className="ml-2">
+                              After Payment: <span className={calculateRemainingBill(selectedBill, payments) - paymentForm.amountPaid > 0 ? 'text-red-600' : 'text-green-600'}>₱{(calculateRemainingBill(selectedBill, payments) - paymentForm.amountPaid).toFixed(2)}</span>
+                            </span>
+                          )}
+                        </div>
                     </div>
                   </div>
                 </div>

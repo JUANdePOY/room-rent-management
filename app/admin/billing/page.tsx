@@ -239,21 +239,18 @@ export default function BillingPage() {
           r.room_id === room.id && r.month_year === generateMonth
         )
         
-        const previousMonth = getPreviousMonth(generateMonth)
-        const previousReading = electricReadings.find(r => 
-          r.room_id === room.id && r.month_year === previousMonth
+        const nextMonth = getNextMonth(generateMonth)
+        const nextReading = electricReadings.find(r => 
+          r.room_id === room.id && r.month_year === nextMonth
         )
 
-        if (!currentReading) {
-          console.warn(`No electric reading for room ${room.room_number} in ${generateMonth}`)
+        if (!currentReading || !nextReading) {
+          console.warn(`No electric reading for room ${room.room_number} in ${generateMonth} or ${nextMonth}`)
           continue
         }
 
-        const electricUsage = previousReading 
-          ? currentReading.reading - previousReading.reading 
-          : 0
-        
-         const electricAmount = electricUsage * billingRate.electricity_rate
+        const electricUsage = nextReading.reading - currentReading.reading 
+        const electricAmount = electricUsage * billingRate.electricity_rate
          const waterAmount = billingRate.water_rate
          const wifiAmount = billingRate.wifi_rate
          const rentAmount = room.rent_amount
@@ -402,6 +399,13 @@ export default function BillingPage() {
     const [year, month] = monthYear.split('-').map(Number)
     const date = new Date(year, month - 1, 1)
     date.setMonth(date.getMonth() - 1)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const getNextMonth = (monthYear: string): string => {
+    const [year, month] = monthYear.split('-').map(Number)
+    const date = new Date(year, month - 1, 1)
+    date.setMonth(date.getMonth() + 1)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
   }
 

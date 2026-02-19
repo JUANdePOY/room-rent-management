@@ -137,9 +137,9 @@ export default function TenantDashboard() {
     return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear
   })
 
-  // Calculate current month's total bill amount
-  const currentMonthTotalBill = currentMonthBill 
-    ? calculateTotalBill(currentMonthBill.items || [])
+  // Calculate current month's remaining bill amount
+  const currentMonthRemainingBill = currentMonthBill 
+    ? calculateRemainingBill(currentMonthBill, payments)
     : 0
 
   if (loading) {
@@ -152,12 +152,14 @@ export default function TenantDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+       <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
         <div className="card">
           <h3 className="text-lg font-semibold mb-2 text-gray-700">
-            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Total Bill
+            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Remaining Bill
           </h3>
-          <p className="text-3xl font-bold text-blue-600">₱{currentMonthTotalBill.toFixed(2)}</p>
+          <p className={`text-3xl font-bold ${currentMonthRemainingBill > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            ₱{currentMonthRemainingBill.toFixed(2)}
+          </p>
           <p className="text-sm text-gray-500 mt-1">
             {currentMonthBill 
               ? `Status: ${currentMonthBill.status}`

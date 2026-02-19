@@ -73,6 +73,29 @@ export default function TenantPaymentsPage() {
     }
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return (
+          <span className="px-3 py-1 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800">
+            ✔ Accepted
+          </span>
+        )
+      case 'declined':
+        return (
+          <span className="px-3 py-1 inline-flex text-xs font-semibold rounded-full bg-red-100 text-red-800">
+            ✗ Declined
+          </span>
+        )
+      default:
+        return (
+          <span className="px-3 py-1 inline-flex text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+            ⏳ Pending
+          </span>
+        )
+    }
+  }
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
     
@@ -215,43 +238,80 @@ export default function TenantPaymentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">My Payments</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Payments</h2>
+          <p className="text-gray-600 mt-1">Track and manage all your payment transactions</p>
+        </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn-primary"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
         >
-          Add Payment
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Add Payment</span>
         </button>
       </div>
 
-      <div className="card">
+      {/* Payment Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Payments</p>
+              <p className="text-2xl font-bold text-gray-900">{payments.length}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Accepted</p>
+              <p className="text-2xl font-bold text-green-600">
+                {payments.filter(p => p.status === 'accepted').length}
+              </p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {payments.filter(p => p.status === 'pending').length}
+              </p>
+            </div>
+            <div className="p-3 bg-yellow-100 rounded-lg">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bill ID
+                  Payment Details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bill Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount Paid
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bill Remaining
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Method
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reference Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Received By
+                  Bill Information
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -273,56 +333,67 @@ export default function TenantPaymentsPage() {
                 const remaining = bill ? bill.amount - totalPaidUpToThisPayment : 0
 
                 return (
-                  <tr key={payment.id} className="hover:bg-gray-50">
+                  <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {bill?.id.slice(0, 8)}
+                      <div className="flex flex-col">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-mono text-sm text-gray-900">
+                            #{payment.id.slice(0, 8)}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 flex items-center space-x-2">
+                          <span>₱{payment.amount_paid.toFixed(2)}</span>
+                          <span className="text-gray-400">•</span>
+                          <span>{getMethodLabel(payment.method)}</span>
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {new Date(payment.payment_date).toLocaleDateString()}
+                        </div>
+                        {payment.reference_number && (
+                          <div className="text-xs text-gray-500 mt-1 bg-gray-100 px-2 py-1 rounded inline-block">
+                            Ref: {payment.reference_number}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      ₱{bill?.amount.toFixed(2) || 'N/A'}
+                      {bill ? (
+                        <div className="flex flex-col">
+                          <div className="font-medium text-gray-900">
+                            Bill #{bill.id.slice(0, 8)}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Total: ₱{bill.amount.toFixed(2)}
+                          </div>
+                          <div className={`text-sm ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            Remaining: ₱{remaining.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Due: {new Date(bill.due_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No bill associated</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      ₱{payment.amount_paid.toFixed(2)}
+                      {getStatusBadge(payment.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`font-medium ${
-                        remaining > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        ₱{remaining.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(payment.payment_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getMethodLabel(payment.method)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {payment.reference_number}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {payment.received_by}
-                    </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ₱{
-                          payment.status === 'accepted'
-                            ? 'bg-green-100 text-green-800'
-                            : payment.status === 'declined'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {payment.status}
-                        </span>
-                      </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {payment.receipt_image && (
+                      {payment.receipt_image ? (
                         <a
                           href={payment.receipt_image}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-900"
+                          className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-900 text-sm font-medium"
                         >
-                          View Receipt
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          <span>View Receipt</span>
                         </a>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No receipt</span>
                       )}
                     </td>
                   </tr>
@@ -332,7 +403,19 @@ export default function TenantPaymentsPage() {
           </table>
         </div>
         {payments.length === 0 && (
-          <p className="text-center text-gray-500 py-8">No payments found</p>
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-lg text-gray-600 mb-2">No payments yet</p>
+            <p className="text-gray-500 mb-6">Get started by adding your first payment</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Add Payment
+            </button>
+          </div>
         )}
       </div>
 
@@ -449,7 +532,7 @@ export default function TenantPaymentsPage() {
                     value={formData.amount_paid}
                     onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
                     className={`input-field ${errors.amount_paid ? 'border-red-500' : ''}`}
-                    placeholder={formData.bill_id ? `Enter amount (current remaining: ₱₱{getBillRemainingBalance(formData.bill_id).toFixed(2)})` : 'Enter amount'}
+                    placeholder={formData.bill_id ? `Enter amount (current remaining: ₱${getBillRemainingBalance(formData.bill_id).toFixed(2)})` : 'Enter amount'}
                   />
                   {errors.amount_paid && (
                     <p className="text-sm text-red-600">{errors.amount_paid}</p>
@@ -504,12 +587,12 @@ export default function TenantPaymentsPage() {
                       </label>
                     </div>
                   ))}
+                  {errors.method && (
+                    <p className="text-sm text-red-600">{errors.method}</p>
+                  )}
                 </div>
-                {errors.method && (
-                  <p className="text-sm text-red-600">{errors.method}</p>
-                )}
               </div>
-
+              
               {formData.method && formData.method !== 'in_person' && (
                 <div>
                   <label className="label">Reference Number</label>
@@ -519,14 +602,13 @@ export default function TenantPaymentsPage() {
                     onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
                     className={`input-field ${errors.reference_number ? 'border-red-500' : ''}`}
                     placeholder="Enter reference number"
-                    required
                   />
                   {errors.reference_number && (
                     <p className="text-sm text-red-600">{errors.reference_number}</p>
                   )}
                 </div>
               )}
-
+              
               {formData.method === 'in_person' && (
                 <div>
                   <label className="label">Received By</label>
@@ -535,34 +617,27 @@ export default function TenantPaymentsPage() {
                     value={formData.received_by}
                     onChange={(e) => setFormData({ ...formData, received_by: e.target.value })}
                     className={`input-field ${errors.received_by ? 'border-red-500' : ''}`}
-                    placeholder="Enter name of person who received payment"
-                    required
+                    placeholder="Enter who received the payment"
                   />
                   {errors.received_by && (
                     <p className="text-sm text-red-600">{errors.received_by}</p>
                   )}
                 </div>
               )}
-              <div className="flex justify-end space-x-3">
+              
+              <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    setFormData({
-                      bill_id: '',
-                      amount_paid: '',
-                      payment_date: new Date().toISOString().split('T')[0],
-                      method: 'gcash',
-                      reference_number: '',
-                      received_by: '',
-                    })
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors">
-                  Create
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Submit Payment
                 </button>
               </div>
             </form>
