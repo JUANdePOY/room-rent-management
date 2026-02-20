@@ -673,33 +673,24 @@ export default function TenantBillsPage() {
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    {bill.remaining !== undefined && bill.remaining > 0 && (
-                      <button
-                        onClick={() => {
-                          setSelectedBill(bill)
-                          setPaymentForm(prev => ({
-                            ...prev,
-                            amountPaid: calculateRemainingBill(bill, payments)
-                          }))
-                          setShowPaymentModal(true)
-                        }}
-                        className="px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        Pay Now
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        // Could add print functionality here
-                        window.print()
-                      }}
-                      className="px-3 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
-                    >
-                      View Details
-                    </button>
-                  </div>
+                   {/* Actions */}
+                   <div className="flex flex-col gap-2">
+                     {bill.remaining !== undefined && bill.remaining > 0 && (
+                       <button
+                         onClick={() => {
+                           setSelectedBill(bill)
+                           setPaymentForm(prev => ({
+                             ...prev,
+                             amountPaid: calculateRemainingBill(bill, payments)
+                           }))
+                           setShowPaymentModal(true)
+                         }}
+                         className="px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                       >
+                         Pay Now
+                       </button>
+                     )}
+                   </div>
                 </div>
               </div>
             ))}

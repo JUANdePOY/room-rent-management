@@ -142,6 +142,19 @@ export default function TenantDashboard() {
     ? calculateRemainingBill(currentMonthBill, payments)
     : 0
 
+  // Get last month's bill
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
+  const lastMonthBill = bills.find(bill => {
+    const billDate = new Date(bill.due_date)
+    return billDate.getMonth() === lastMonth && billDate.getFullYear() === lastMonthYear
+  })
+
+  // Calculate last month's remaining bill amount
+  const lastMonthRemainingBill = lastMonthBill 
+    ? calculateRemainingBill(lastMonthBill, payments)
+    : 0
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -152,7 +165,7 @@ export default function TenantDashboard() {
 
   return (
     <div className="space-y-6">
-       <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card">
           <h3 className="text-lg font-semibold mb-2 text-gray-700">
             {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Remaining Bill
@@ -163,6 +176,21 @@ export default function TenantDashboard() {
           <p className="text-sm text-gray-500 mt-1">
             {currentMonthBill 
               ? `Status: ${currentMonthBill.status}`
+              : 'No bill generated yet'
+            }
+          </p>
+        </div>
+
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-2 text-gray-700">
+            {new Date(lastMonthYear, lastMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Remaining Bill
+          </h3>
+          <p className={`text-3xl font-bold ${lastMonthRemainingBill > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            ₱{lastMonthRemainingBill.toFixed(2)}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            {lastMonthBill 
+              ? `Status: ${lastMonthBill.status}`
               : 'No bill generated yet'
             }
           </p>
