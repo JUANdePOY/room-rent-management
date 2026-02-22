@@ -33,7 +33,7 @@ export const calculateTotalPaid = (bill: Bill, payments: Payment[]): number => {
 
 // Function to validate bill items structure
 export const validateBillItems = (items: BillItem[]): boolean => {
-  const requiredItemTypes: Array<'room_rent' | 'electricity' | 'water' | 'wifi'> = ['room_rent', 'electricity', 'water', 'wifi']
+  const requiredItemTypes: Array<'room_rent' | 'electricity'> = ['room_rent', 'electricity']
   const itemTypes = items.map(item => item.item_type)
   
   return requiredItemTypes.every(type => itemTypes.includes(type as any))
@@ -44,8 +44,6 @@ export const calculateBillItems = (
   billId: string,
   rentAmount: number,
   electricAmount: number,
-  waterAmount: number,
-  wifiAmount: number,
   remainingBalance: number
 ): Omit<BillItem, 'id' | 'created_at'>[] => {
   const items: Omit<BillItem, 'id' | 'created_at'>[] = [
@@ -60,18 +58,6 @@ export const calculateBillItems = (
       item_type: 'electricity',
       amount: electricAmount,
       details: 'Electricity Bill',
-    },
-    {
-      bill_id: billId,
-      item_type: 'water',
-      amount: waterAmount,
-      details: 'Water Bill',
-    },
-    {
-      bill_id: billId,
-      item_type: 'wifi',
-      amount: wifiAmount,
-      details: 'WiFi Bill',
     },
   ]
 
@@ -190,8 +176,6 @@ export const calculateBillBreakdown = (items: BillItem[]) => {
   const breakdown = {
     room_rent: 0,
     electricity: 0,
-    water: 0,
-    wifi: 0,
     remaining_balance: 0,
     other: 0,
   }

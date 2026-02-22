@@ -108,44 +108,26 @@ export default function TenantRoomPage() {
                   <div className="mt-6">
                     <h5 className="text-sm font-semibold text-gray-700 mb-3">Included Amenities</h5>
                     <div className="flex flex-wrap gap-2">
-                      {room.wifi_included && (
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                          WiFi Included
-                        </span>
-                      )}
-                      {room.water_included && (
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                          Water Included
-                        </span>
-                      )}
                       {room.electric_included && (
                         <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
                           Electricity Included
                         </span>
                       )}
-                      {!room.wifi_included && !room.water_included && !room.electric_included && (
+                      {!room.electric_included && (
                         <p className="text-gray-500 text-sm">No additional amenities included</p>
                       )}
                     </div>
                   </div>
 
                   {/* Meter Numbers */}
-                  {(room.electric_meter_number || room.water_meter_number) && (
+                  {room.electric_meter_number && (
                     <div className="mt-6">
                       <h5 className="text-sm font-semibold text-gray-700 mb-3">Meter Numbers</h5>
                       <div className="space-y-2">
-                        {room.electric_meter_number && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Electric:</span>
-                            <span className="font-medium">{room.electric_meter_number}</span>
-                          </div>
-                        )}
-                        {room.water_meter_number && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Water:</span>
-                            <span className="font-medium">{room.water_meter_number}</span>
-                          </div>
-                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Electric:</span>
+                          <span className="font-medium">{room.electric_meter_number}</span>
+                        </div>
                       </div>
                     </div>
                   )}

@@ -24,11 +24,7 @@ export default function RoomsPage() {
     status: 'available' as 'available' | 'occupied' | 'maintenance',
     description: '',
     electric_meter_number: '',
-    water_meter_number: '',
     initial_electric_reading: '',
-    initial_water_reading: '',
-    wifi_included: true,
-    water_included: false,
     electric_included: false,
     max_occupancy: '1',
     deposit_amount: '',
@@ -99,11 +95,7 @@ export default function RoomsPage() {
       status, 
       description,
       electric_meter_number,
-      water_meter_number,
       initial_electric_reading,
-      initial_water_reading,
-      wifi_included,
-      water_included,
       electric_included,
       max_occupancy,
       deposit_amount
@@ -119,11 +111,7 @@ export default function RoomsPage() {
           status,
           description,
           electric_meter_number,
-          water_meter_number,
           initial_electric_reading: parseFloat(initial_electric_reading || '0'),
-          initial_water_reading: parseFloat(initial_water_reading || '0'),
-          wifi_included,
-          water_included,
           electric_included,
           max_occupancy: parseInt(max_occupancy || '1'),
           deposit_amount: parseFloat(deposit_amount || '0'),
@@ -139,11 +127,7 @@ export default function RoomsPage() {
         status,
         description,
         electric_meter_number,
-        water_meter_number,
         initial_electric_reading: parseFloat(initial_electric_reading || '0'),
-        initial_water_reading: parseFloat(initial_water_reading || '0'),
-        wifi_included,
-        water_included,
         electric_included,
         max_occupancy: parseInt(max_occupancy || '1'),
         deposit_amount: parseFloat(deposit_amount || '0'),
@@ -162,11 +146,7 @@ export default function RoomsPage() {
       status: 'available',
       description: '',
       electric_meter_number: '',
-      water_meter_number: '',
       initial_electric_reading: '',
-      initial_water_reading: '',
-      wifi_included: true,
-      water_included: false,
       electric_included: false,
       max_occupancy: '1',
       deposit_amount: '',
@@ -183,11 +163,7 @@ export default function RoomsPage() {
       status: room.status,
       description: room.description || '',
       electric_meter_number: room.electric_meter_number || '',
-      water_meter_number: room.water_meter_number || '',
       initial_electric_reading: room.initial_electric_reading?.toString() || '',
-      initial_water_reading: room.initial_water_reading?.toString() || '',
-      wifi_included: room.wifi_included ?? true,
-      water_included: room.water_included ?? false,
       electric_included: room.electric_included ?? false,
       max_occupancy: room.max_occupancy?.toString() || '1',
       deposit_amount: room.deposit_amount?.toString() || '',
@@ -289,16 +265,6 @@ export default function RoomsPage() {
 
               {/* Amenities */}
               <div className="flex flex-wrap gap-2 mb-4">
-                {room.wifi_included && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                    WiFi Included
-                  </span>
-                )}
-                {room.water_included && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                    Water Included
-                  </span>
-                )}
                 {room.electric_included && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                     Electricity Included
@@ -386,7 +352,6 @@ export default function RoomsPage() {
                   <div>
                     <p className="text-sm text-gray-500">Meter Numbers</p>
                     <p className="font-medium">Electric: {selectedRoom.electric_meter_number || 'N/A'}</p>
-                    <p className="font-medium">Water: {selectedRoom.water_meter_number || 'N/A'}</p>
                   </div>
                 </div>
 
@@ -566,11 +531,7 @@ export default function RoomsPage() {
                       status: 'available',
                       description: '',
                       electric_meter_number: '',
-                      water_meter_number: '',
                       initial_electric_reading: '',
-                      initial_water_reading: '',
-                      wifi_included: true,
-                      water_included: false,
                       electric_included: false,
                       max_occupancy: '1',
                       deposit_amount: '',

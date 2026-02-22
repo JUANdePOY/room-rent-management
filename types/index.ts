@@ -16,11 +16,7 @@ export interface Room {
   status: 'available' | 'occupied' | 'maintenance'
   description?: string
   electric_meter_number?: string
-  water_meter_number?: string
   initial_electric_reading?: number
-  initial_water_reading?: number
-  wifi_included?: boolean
-  water_included?: boolean
   electric_included?: boolean
   max_occupancy?: number
   deposit_amount?: number
@@ -45,8 +41,6 @@ export interface BillingRate {
   id: string
   month_year: string
   electricity_rate: number
-  water_rate: number
-  wifi_rate: number
   created_at: string
   updated_at: string
 }
@@ -63,7 +57,7 @@ export interface ElectricReading {
 export interface BillItem {
   id: string
   bill_id: string
-  item_type: 'room_rent' | 'electricity' | 'water' | 'wifi' | 'remaining_balance'
+  item_type: 'room_rent' | 'electricity' | 'remaining_balance'
   amount: number
   details?: string
   created_at: string

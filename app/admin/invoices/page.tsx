@@ -91,16 +91,12 @@ export default function AdminInvoicesPage() {
         
         if (!roomBillMap.has(bill.room_id)) {
           const billItems = bill.items || []
-          const wifiAmount = billItems.find((item: BillItem) => item.item_type === 'wifi')?.amount || 0
-          const waterAmount = billItems.find((item: BillItem) => item.item_type === 'water')?.amount || 0
           const electricityAmount = billItems.find((item: BillItem) => item.item_type === 'electricity')?.amount || 0
           const rentAmount = billItems.find((item: BillItem) => item.item_type === 'room_rent')?.amount || 0
 
           roomBillMap.set(bill.room_id, {
             'Room ID': bill.room_id,
             'Tenant Name': getTenantName(bill.tenant_id),
-            'Wifi': `₱₱{wifiAmount.toFixed(2)}`,
-            'Water': `₱₱{waterAmount.toFixed(2)}`,
             'Electricity': `₱₱{electricityAmount.toFixed(2)}`,
             'Month Rent': `₱₱{rentAmount.toFixed(2)}`,
             'Total Bill (Current Month)': `₱₱{bill.amount.toFixed(2)}`
@@ -177,15 +173,11 @@ export default function AdminInvoicesPage() {
         const monthName = months[billDate.getMonth()] + ' ' + billDate.getFullYear()
         
         const billItems = bill.items || []
-        const wifiAmount = billItems.find((item: BillItem) => item.item_type === 'wifi')?.amount || 0
-        const waterAmount = billItems.find((item: BillItem) => item.item_type === 'water')?.amount || 0
         const electricityAmount = billItems.find((item: BillItem) => item.item_type === 'electricity')?.amount || 0
         const rentAmount = billItems.find((item: BillItem) => item.item_type === 'room_rent')?.amount || 0
 
         tenantMonths.push({
           'Months': monthName,
-          'Wifi': `₱₱{wifiAmount.toFixed(2)}`,
-          'Water': `₱₱{waterAmount.toFixed(2)}`,
           'Electricity': `₱₱{electricityAmount.toFixed(2)}`,
           'Month Rent': `₱₱{rentAmount.toFixed(2)}`,
           'Total Bill': `₱₱{bill.amount.toFixed(2)}`

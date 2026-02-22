@@ -22,8 +22,6 @@ export default function BillingPage() {
   const [rateForm, setRateForm] = useState({
     month_year: '',
     electricity_rate: '',
-    water_rate: '',
-    wifi_rate: '',
   })
   
   const [readingForm, setReadingForm] = useState({
@@ -109,7 +107,7 @@ export default function BillingPage() {
 
   const handleRateSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { month_year, electricity_rate, water_rate, wifi_rate } = rateForm
+    const { month_year, electricity_rate } = rateForm
 
     try {
       if (editingRate) {
@@ -117,8 +115,6 @@ export default function BillingPage() {
           .from('billing_rates')
           .update({
             electricity_rate: parseFloat(electricity_rate),
-            water_rate: parseFloat(water_rate),
-            wifi_rate: parseFloat(wifi_rate),
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRate.id)
@@ -132,8 +128,6 @@ export default function BillingPage() {
         const { error } = await supabase.from('billing_rates').insert({
           month_year,
           electricity_rate: parseFloat(electricity_rate),
-          water_rate: parseFloat(water_rate),
-          wifi_rate: parseFloat(wifi_rate),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -251,8 +245,6 @@ export default function BillingPage() {
 
         const electricUsage = nextReading.reading - currentReading.reading 
         const electricAmount = electricUsage * billingRate.electricity_rate
-         const waterAmount = billingRate.water_rate
-         const wifiAmount = billingRate.wifi_rate
          const rentAmount = room.rent_amount
          
             const prevMonth = getPreviousMonth(generateMonth)
@@ -303,19 +295,17 @@ export default function BillingPage() {
               console.log('No previous bill found for tenant:', tenant.id, 'in month:', prevMonth)
             }
           
-           const totalAmount = wifiAmount + waterAmount + electricAmount + rentAmount + remainingBalance
-            const calculatedBillItems = calculateBillItems('temp', rentAmount, electricAmount, waterAmount, wifiAmount, remainingBalance)
-            const calculatedTotalFromItems = calculateTotalBill(calculatedBillItems)
-            console.log('Calculated total bill amount:', {
-              wifi: wifiAmount,
-              water: waterAmount,
-              electricity: electricAmount,
-              rent: rentAmount,
-              remainingBalance,
-              totalFromCalculation: totalAmount,
-              totalFromItems: calculatedTotalFromItems,
-              billItems: calculatedBillItems
-            })
+            const totalAmount = electricAmount + rentAmount + remainingBalance
+             const calculatedBillItems = calculateBillItems('temp', rentAmount, electricAmount, remainingBalance)
+             const calculatedTotalFromItems = calculateTotalBill(calculatedBillItems)
+             console.log('Calculated total bill amount:', {
+               electricity: electricAmount,
+               rent: rentAmount,
+               remainingBalance,
+               totalFromCalculation: totalAmount,
+               totalFromItems: calculatedTotalFromItems,
+               billItems: calculatedBillItems
+             })
 
         const dueDate = new Date(generateMonth + '-01')
         dueDate.setMonth(dueDate.getMonth() + 1)
@@ -349,8 +339,6 @@ export default function BillingPage() {
             billId,
             rentAmount,
             electricAmount,
-            waterAmount,
-            wifiAmount,
             remainingBalance
           )
           
@@ -413,8 +401,6 @@ export default function BillingPage() {
     setRateForm({
       month_year: '',
       electricity_rate: '',
-      water_rate: '',
-      wifi_rate: '',
     })
   }
 
@@ -616,12 +602,6 @@ export default function BillingPage() {
                   Electricity Rate (per kWh)
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Water Bill
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  WiFi Bill
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -640,8 +620,6 @@ export default function BillingPage() {
                     })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">₱{rate.electricity_rate.toFixed(4)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">₱{rate.water_rate.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">₱{rate.wifi_rate.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
                       onClick={() => {
@@ -649,8 +627,6 @@ export default function BillingPage() {
                         setRateForm({
                           month_year: rate.month_year,
                           electricity_rate: rate.electricity_rate.toString(),
-                          water_rate: rate.water_rate.toString(),
-                          wifi_rate: rate.wifi_rate.toString(),
                         })
                         setShowRateModal(true)
                       }}
@@ -937,28 +913,6 @@ export default function BillingPage() {
                   step="0.0001"
                   value={rateForm.electricity_rate}
                   onChange={(e) => setRateForm({ ...rateForm, electricity_rate: e.target.value })}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Water Bill</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={rateForm.water_rate}
-                  onChange={(e) => setRateForm({ ...rateForm, water_rate: e.target.value })}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">WiFi Bill</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={rateForm.wifi_rate}
-                  onChange={(e) => setRateForm({ ...rateForm, wifi_rate: e.target.value })}
                   className="input-field"
                   required
                 />
