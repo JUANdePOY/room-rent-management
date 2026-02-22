@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { Payment, Bill, Tenant, BillItem } from '../../../types'
+import { Payment, Bill, Tenant, BillItem, Room } from '../../../types'
 import { calculateTotalBill, calculateRemainingBill, calculateTotalPaid } from '../../../lib/billingUtils'
 
 
@@ -10,14 +10,68 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [bills, setBills] = useState<Bill[]>([])
   const [tenants, setTenants] = useState<Tenant[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState<'pending' | 'accepted' | 'declined'>('pending')
+
+  // Handle closing modals with ESC key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showModal) {
+          setShowModal(false)
+          setEditingPayment(null)
+          setFormData({
+            room_id: '',
+            bill_id: '',
+            amount_paid: '',
+            payment_date: '',
+            method: 'gcash',
+            reference_number: '',
+            received_by: '',
+            status: 'accepted',
+          })
+          setTotalRemainingBill(0)
+        }
+        if (showDetailsModal) {
+          setShowDetailsModal(false)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [showModal, showDetailsModal])
+
+  // Handle closing modals by clicking outside
+  const handleModalOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      if (showModal) {
+        setShowModal(false)
+        setEditingPayment(null)
+        setFormData({
+          room_id: '',
+          bill_id: '',
+          amount_paid: '',
+          payment_date: '',
+          method: 'gcash',
+          reference_number: '',
+          received_by: '',
+          status: 'accepted',
+        })
+        setTotalRemainingBill(0)
+      }
+      if (showDetailsModal) {
+        setShowDetailsModal(false)
+      }
+    }
+  }
   const [formData, setFormData] = useState({
-    tenant_id: '',
+    room_id: '',
     bill_id: '',
     amount_paid: '',
     payment_date: '',
@@ -40,14 +94,14 @@ export default function PaymentsPage() {
     fetchData()
   }, [])
 
-  const calculateTotalRemainingBill = (tenantId: string) => {
+  const calculateTotalRemainingBill = (roomId: string) => {
     // Get current month
     const currentDate = new Date()
     const currentMonth = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0')
     
-    // Get current month's bill for the tenant
+    // Get current month's bill for the room
     const currentMonthBills = bills.filter(bill => {
-      return bill.tenant_id === tenantId && bill.description?.includes(currentMonth)
+      return bill.room_id === roomId && bill.description?.includes(currentMonth)
     })
     
     if (currentMonthBills.length > 0) {
@@ -65,7 +119,7 @@ export default function PaymentsPage() {
       // If no current month bill, check for pending bills from previous months
       const pendingBills = bills.filter(bill => {
         const remaining = calculateRemainingBill(bill, payments)
-        return bill.tenant_id === tenantId && remaining > 0
+        return bill.room_id === roomId && remaining > 0
       })
       
       if (pendingBills.length > 0) {
@@ -94,10 +148,11 @@ export default function PaymentsPage() {
 
   const fetchData = async () => {
     try {
-      const [paymentsData, billsData, tenantsData, billItemsData] = await Promise.all([
+      const [paymentsData, billsData, tenantsData, roomsData, billItemsData] = await Promise.all([
         supabase.from('payments').select('*'),
         supabase.from('bills').select('*'),
         supabase.from('tenants').select('*'),
+        supabase.from('rooms').select('*'),
         supabase.from('bill_items').select('*'),
       ])
 
@@ -122,6 +177,13 @@ export default function PaymentsPage() {
         setTenants(tenantsData.data)
       }
 
+      if (roomsData.error) {
+        console.error('Error fetching rooms:', roomsData.error)
+        alert('Failed to fetch rooms: ' + roomsData.error.message)
+      } else if (roomsData.data) {
+        setRooms(roomsData.data)
+      }
+
       if (billItemsData.error) {
         console.error('Error fetching bill items:', billItemsData.error)
         alert('Failed to fetch bill items: ' + billItemsData.error.message)
@@ -138,7 +200,11 @@ export default function PaymentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { bill_id, tenant_id, amount_paid, payment_date, method, reference_number, received_by, status } = formData
+    const { bill_id, room_id, amount_paid, payment_date, method, reference_number, received_by, status } = formData
+    
+    // Get tenant_id from room_id (since payments table still needs tenant_id)
+    const tenant = tenants.find(t => t.room_id === room_id)
+    const tenant_id = tenant?.id || ''
 
     try {
       if (editingPayment) {
@@ -326,7 +392,7 @@ export default function PaymentsPage() {
       setShowModal(false)
       setEditingPayment(null)
       setFormData({
-        tenant_id: '',
+        room_id: '',
         bill_id: '',
         amount_paid: '',
         payment_date: '',
@@ -354,9 +420,13 @@ export default function PaymentsPage() {
 
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment)
+    
+    // Get room_id from tenant_id (since we need to show the room in the form)
+    const tenant = tenants.find(t => t.id === payment.tenant_id)
+    
     setFormData({
       bill_id: payment.bill_id,
-      tenant_id: payment.tenant_id,
+      room_id: tenant?.room_id || '',
       amount_paid: payment.amount_paid.toString(),
       payment_date: payment.payment_date,
       method: payment.method,
@@ -792,7 +862,10 @@ export default function PaymentsPage() {
 
       {/* Payments Details Modal */}
       {showDetailsModal && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+          onClick={handleModalOverlayClick}
+        >
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-gray-900">
@@ -1063,24 +1136,27 @@ export default function PaymentsPage() {
       )}
 
       {showModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
+         <div 
+           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50"
+           onClick={handleModalOverlayClick}
+         >
           <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingPayment ? 'Edit Payment' : 'Add Payment'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="label">Tenant</label>
+                <label className="label">Room</label>
                 <select
-                  value={formData.tenant_id}
+                  value={formData.room_id}
                   onChange={(e) => {
-                    const tenantId = e.target.value
+                    const roomId = e.target.value
                     setFormData({
                       ...formData,
-                      tenant_id: tenantId
+                      room_id: roomId
                     })
-                    if (tenantId) {
-                      calculateTotalRemainingBill(tenantId)
+                    if (roomId) {
+                      calculateTotalRemainingBill(roomId)
                     } else {
                       setTotalRemainingBill(0)
                       setFormData(prev => ({
@@ -1092,10 +1168,19 @@ export default function PaymentsPage() {
                   className="input-field"
                   required
                 >
-                  <option value="">Select Tenant</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant.id} value={tenant.id}>
-                      {tenant.name}
+                  <option value="">Select Room</option>
+                  {[...rooms].sort((a, b) => {
+                    // Sort by room number (numerically)
+                    const numA = parseInt(a.room_number)
+                    const numB = parseInt(b.room_number)
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                      return numA - numB
+                    }
+                    // If numbers can't be parsed, sort alphabetically
+                    return a.room_number.localeCompare(b.room_number)
+                  }).map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.room_number} ({room.type})
                     </option>
                   ))}
                 </select>
@@ -1111,7 +1196,7 @@ export default function PaymentsPage() {
                   className="input-field"
                 >
                   <option value="">Select Bill (Optional)</option>
-                  {bills.filter(bill => bill.tenant_id === formData.tenant_id).map((bill) => {
+                  {bills.filter(bill => bill.room_id === formData.room_id).map((bill) => {
                     const tenant = tenants.find(t => t.id === bill.tenant_id)
                     const remaining = getBillRemainingBalance(bill.id)
                     return (
@@ -1307,7 +1392,7 @@ export default function PaymentsPage() {
                     setShowModal(false)
                     setEditingPayment(null)
                     setFormData({
-                      tenant_id: '',
+                      room_id: '',
                       bill_id: '',
                       amount_paid: '',
                       payment_date: '',

@@ -35,6 +35,16 @@ export default function BillsPage() {
     description: '',
   })
 
+  // Payment state
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
+  const [paymentForm, setPaymentForm] = useState({
+    method: '' as 'gcash' | 'bank' | 'in_person',
+    referenceNumber: '',
+    receivedBy: '',
+    amountPaid: 0,
+  })
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -261,6 +271,64 @@ export default function BillsPage() {
     setShowModal(true)
   }
 
+  const handlePay = (bill: Bill) => {
+    setSelectedBill(bill)
+    setPaymentForm({
+      method: 'gcash',
+      referenceNumber: '',
+      receivedBy: '',
+      amountPaid: bill.remaining || bill.amount,
+    })
+    setShowPaymentModal(true)
+  }
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedBill) return
+
+    try {
+      // Create payment record
+      const paymentData: any = {
+        bill_id: selectedBill.id,
+        tenant_id: selectedBill.tenant_id,
+        amount_paid: paymentForm.amountPaid || selectedBill.amount,
+        payment_date: new Date().toISOString().split('T')[0],
+        method: paymentForm.method,
+        reference_number: paymentForm.referenceNumber,
+        status: 'accepted', // Admin payments are accepted immediately
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      if (paymentForm.method === 'in_person') {
+        paymentData.received_by = paymentForm.receivedBy
+      }
+
+      // Insert payment
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert(paymentData)
+
+      if (paymentError) throw paymentError
+
+      // Refresh data
+      await fetchData()
+      setShowPaymentModal(false)
+      setSelectedBill(null)
+      setPaymentForm({
+        method: 'gcash',
+        referenceNumber: '',
+        receivedBy: '',
+        amountPaid: 0,
+      })
+
+      alert('Payment processed successfully!')
+    } catch (error) {
+      console.error('Payment error:', error)
+      alert('Failed to process payment. Please try again.')
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this bill?')) return
     
@@ -384,10 +452,11 @@ export default function BillsPage() {
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Monthly Summary</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          {monthlySummaries.map((summary) => (
+           {monthlySummaries.map((summary) => (
             <div
               key={summary.monthKey}
-              className="group relative transform-style-preserve-3d transition-all duration-500 hover:translate-y-[-4px] hover:rotateX-2 hover:rotateY-2"
+              onClick={() => handleViewMonthDetails(summary.monthKey)}
+              className="group relative transform-style-preserve-3d transition-all duration-500 hover:translate-y-[-4px] hover:rotateX-2 hover:rotateY-2 cursor-pointer"
             >
               {/* 3D Card Effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-500 rounded-md transform translate-z-[-1px] blur-sm opacity-50 group-hover:opacity-70 transition-all duration-300 group-hover:blur-md"></div>
@@ -429,20 +498,14 @@ export default function BillsPage() {
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <button
-                  onClick={() => handleViewMonthDetails(summary.monthKey)}
-                  className="w-full px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  View Details
-                </button>
+
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Month Details Modal */}
+       {/* Month Details Modal */}
       {showMonthDetailsModal && selectedMonth && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -460,205 +523,288 @@ export default function BillsPage() {
               </button>
             </div>
 
-            <div className="card">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tenant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Room
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Bill
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Paid
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Remaining Balance
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Due Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Items
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {monthlyBills.map((bill) => {
-                      const tenant = tenants.find(t => t.id === bill.tenant_id)
-                      const room = rooms.find(r => r.id === bill.room_id)
-                      return (
-                        <tr key={bill.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-medium text-gray-900">
-                              {tenant?.name}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {room?.room_number}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            ₱{(bill.items && bill.items.length > 0 
-                              ? bill.items.reduce((sum, item) => sum + item.amount, 0) 
-                              : bill.amount).toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            ₱{(bill as any).totalPaid?.toFixed(2) || '0.00'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                             <span className={`font-medium ₱{
-                              calculateRemainingBill(bill, payments) > 0 ? 'text-red-600' : 'text-green-600'
-                            }`}>
-                              ₱{calculateRemainingBill(bill, payments).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {new Date(bill.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ₱{
-                              bill.status === 'paid'
-                                ? 'bg-green-100 text-green-800'
-                                : bill.status === 'overdue'
-                                ? 'bg-red-100 text-red-800'
-                                : bill.status === 'partial'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {bill.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {bill.description}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {bill.items && bill.items.length > 0 ? (
-                              <details className="cursor-pointer">
-                                <summary className="text-sm text-blue-600 hover:text-blue-900">
-                                  View Items ({bill.items.length})
-                                </summary>
-                                <div className="mt-2 text-sm text-gray-600">
-                                  {bill.items?.map((item, index) => {
-                                    // Calculate remaining balance per item based on payment allocation
-                                    const totalBillAmount = (bill.items || []).reduce((sum, i) => sum + i.amount, 0)
-                                    const paymentAllocation = item.amount / totalBillAmount
-                                    const itemPaid = (bill as any).totalPaid * paymentAllocation
-                                    const itemRemaining = item.amount - itemPaid
-                                    
-                                     // Enhanced electricity bill item with actual consumption data
-                                    if (item.item_type === 'electricity') {
-                                      const billDate = new Date(bill.due_date)
-                                      const billMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
-                                      const nextMonthDate = new Date(billDate.getFullYear(), billDate.getMonth(), 1)
-                                      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1)
-                                      const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`
-                                      
-                                      // Get current and next month's readings
-                                      const currentReading = electricReadings.find(r => 
-                                        r.room_id === bill.room_id && r.month_year === billMonth
-                                      )
-                                      const nextReading = electricReadings.find(r => 
-                                        r.room_id === bill.room_id && r.month_year === nextMonth
-                                      )
-                                      
-                                      // Get billing rate for current month
-                                      const billingRate = billingRates.find(r => 
-                                        r.month_year === billMonth
-                                      )
-                                      
-                                      let usage = 0
-                                      let rate = 0
-                                      let currentReadingVal = 0
-                                      let nextReadingVal = 0
-                                      
-                                      if (currentReading && nextReading) {
-                                        currentReadingVal = currentReading.reading
-                                        nextReadingVal = nextReading.reading
-                                        usage = nextReadingVal - currentReadingVal
-                                      }
-                                      
-                                      if (billingRate) {
-                                        rate = billingRate.electricity_rate
-                                      }
-                                      
-                                      return (
-                                        <div key={index} className="py-1">
-                                          <strong>{item.item_type}:</strong> ₱{item.amount.toFixed(2)}
-                                          <div className="text-xs text-gray-500">
-                                            Paid: ₱{itemPaid.toFixed(2)} | Remaining: <span className={itemRemaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{itemRemaining.toFixed(2)}</span>
-                                          </div>
-                                          {item.details && (
-                                            <div className="text-xs text-gray-500 mt-1"></div>
-                                          )}
-                                          {usage > 0 && rate > 0 && (
-                                            <div className="text-xs text-gray-600 mt-1">
-                                              Usage: {usage.toFixed(2)} kWh × ₱{rate.toFixed(4)}/kWh = ₱{(usage * rate).toFixed(2)}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )
-                                    }
-                                    
-                                    // Default item format for other types
-                                    return (
-                                      <div key={index} className="py-1">
-                                        <strong>{item.item_type}:</strong> ₱{item.amount.toFixed(2)}
-                                        <div className="text-xs text-gray-500">
-                                          Paid: ₱{itemPaid.toFixed(2)} | Remaining: <span className={itemRemaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{itemRemaining.toFixed(2)}</span>
-                                        </div>
-                                        {item.details && (
-                                          <div className="text-xs text-gray-500 mt-1">{item.details}</div>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                  <div className="border-t border-gray-200 mt-2 pt-2">
-                                    <strong>Total:</strong> ₱{bill.items.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
-                                    <div className="text-xs text-gray-500">
-                                      Paid: ₱{(bill as any).totalPaid.toFixed(2)} | Remaining: <span className={(bill as any).remaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{(bill as any).remaining.toFixed(2)}</span>
-                                    </div>
-                                  </div>
+            {/* Bills per Room Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...monthlyBills]
+                .sort((a, b) => {
+                  const roomA = rooms.find(r => r.id === a.room_id)?.room_number || ''
+                  const roomB = rooms.find(r => r.id === b.room_id)?.room_number || ''
+                  return roomA.localeCompare(roomB, undefined, { numeric: true })
+                })
+                .map((bill) => {
+                const tenant = tenants.find(t => t.id === bill.tenant_id)
+                const room = rooms.find(r => r.id === bill.room_id)
+                
+                return (
+                  <div
+                    key={bill.id}
+                    className="group relative transform-style-preserve-3d transition-all duration-500 hover:translate-y-[-6px] hover:rotateX-2 hover:rotateY-2"
+                  >
+                    {/* 3D Card Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-500 rounded-lg transform translate-z-[-1px] blur-md opacity-50 group-hover:opacity-70 transition-all duration-300 group-hover:blur-lg"></div>
+                    <div className="bg-white rounded-lg shadow-lg p-4 transform translate-z-0 relative transition-all duration-300 group-hover:shadow-2xl group-hover:border-t-4 group-hover:border-blue-500">
+                      {/* Status Badge */}
+                      <div className="absolute top-4 right-4">
+                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                          bill.status === 'paid'
+                            ? 'bg-green-100 text-green-800'
+                            : bill.status === 'overdue'
+                            ? 'bg-red-100 text-red-800'
+                            : bill.status === 'partial'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {bill.status}
+                        </span>
+                      </div>
+
+                      {/* Room Number */}
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                        {room?.room_number || 'N/A'}
+                      </h3>
+
+                      {/* Tenant Name */}
+                      <p className="text-gray-600 mb-1 text-sm font-medium">{tenant?.name || 'N/A'}</p>
+
+                      {/* Total Bill Amount */}
+                      <div className="mb-4">
+                        <p className="text-gray-500 text-sm mb-1">Total Bill</p>
+                        <p className="text-lg font-semibold text-gray-900">₱{bill.amount.toFixed(2)}</p>
+                      </div>
+
+                      {/* Payment Details */}
+                      <div className="space-y-2 mb-4">
+                        <div>
+                          <p className="text-gray-500 text-sm mb-1">Total Paid</p>
+                          <p className="font-semibold text-green-600">₱{(bill.totalPaid || 0).toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-sm mb-1">Remaining Balance</p>
+                          <p className={`font-semibold ${(bill.remaining || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ₱{(bill.remaining || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Due Date */}
+                      <div className="mb-4">
+                        <p className="text-gray-500 text-sm mb-1">Due Date</p>
+                        <p className="font-semibold text-gray-900">
+                          {new Date(bill.due_date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+
+                      {/* Bill Items */}
+                      {bill.items && bill.items.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-gray-500 text-sm mb-2 font-medium">Bill Items</p>
+                          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                            {bill.items.map((item, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="flex justify-between">
+                                  <span className="font-medium">{item.item_type.replace('_', ' ').toUpperCase()}:</span>
+                                  <span>₱{item.amount.toFixed(2)}</span>
                                 </div>
-                              </details>
-                            ) : (
-                              <span className="text-gray-400 text-sm">No items</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                            <button
-                              onClick={() => handleEdit(bill)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(bill.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                {item.details && (
+                                  <div className="text-xs text-gray-600 mt-1">{item.details}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 pt-4 border-t border-gray-200">
+                        <button
+                          onClick={() => handleEdit(bill)}
+                          className="flex-2 px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handlePay(bill)}
+                          className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                        >
+                          Pay Bill
+                        </button>
+                        <button
+                          onClick={() => handleDelete(bill.id)}
+                          className="px-3 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+
+            {/* No Bills Message */}
+            {monthlyBills.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <p className="text-lg">No bills for this month</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedBill && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Pay Bill - Room {rooms.find(r => r.id === selectedBill.room_id)?.room_number}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false)
+                  setSelectedBill(null)
+                  setPaymentForm({
+                    method: 'gcash',
+                    referenceNumber: '',
+                    receivedBy: '',
+                    amountPaid: 0,
+                  })
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Total Bill Amount</span>
+                  <span className="text-lg font-bold text-gray-900">₱{selectedBill.amount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-gray-700">Amount Paid</span>
+                  <span className="text-lg font-bold text-green-600">₱{(selectedBill.totalPaid || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                    <span className="text-sm font-medium text-gray-700">Remaining Balance</span>
+                    <span className="text-lg font-bold text-red-600">₱{(selectedBill.remaining || selectedBill.amount).toFixed(2)}</span>
+                  </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount to Pay</label>
+                <div className="space-y-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={paymentForm.amountPaid || ''}
+                    onChange={(e) => setPaymentForm(prev => ({
+                      ...prev,
+                      amountPaid: e.target.value ? parseFloat(e.target.value) : 0
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    placeholder="Enter amount"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'gcash', label: 'GCash' },
+                    { value: 'bank', label: 'Bank Transfer' },
+                    { value: 'in_person', label: 'In Person' },
+                  ].map((method) => (
+                    <label key={method.value} className="flex items-center">
+                      <input
+                        type="radio"
+                        name="method"
+                        value={method.value}
+                        checked={paymentForm.method === method.value}
+                        onChange={() => setPaymentForm(prev => ({ ...prev, method: method.value as any }))}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        required
+                      />
+                      <span className="ml-3 text-sm text-gray-700">{method.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {paymentForm.method === 'gcash' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
+                  <input
+                    type="text"
+                    value={paymentForm.referenceNumber}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    placeholder="Enter GCash reference number"
+                  />
+                </div>
+              )}
+
+              {paymentForm.method === 'bank' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
+                  <input
+                    type="text"
+                    value={paymentForm.referenceNumber}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    placeholder="Enter bank reference number"
+                  />
+                </div>
+              )}
+
+              {paymentForm.method === 'in_person' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+                  <input
+                    type="text"
+                    value={paymentForm.receivedBy}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, receivedBy: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    placeholder="Enter receiver's name"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentModal(false)
+                    setSelectedBill(null)
+                    setPaymentForm({
+                      method: 'gcash',
+                      referenceNumber: '',
+                      receivedBy: '',
+                      amountPaid: 0,
+                    })
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                  Pay Now
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
