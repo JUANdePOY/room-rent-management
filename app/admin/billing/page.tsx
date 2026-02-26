@@ -91,11 +91,17 @@ export default function BillingPage() {
         setTenants(tenantsData.data)
       }
 
-      if (roomsData.error) {
+       if (roomsData.error) {
         console.error('Error fetching rooms:', roomsData.error)
         alert('Failed to fetch rooms: ' + roomsData.error.message)
       } else if (roomsData.data) {
-        setRooms(roomsData.data)
+        // Sort rooms by room number in ascending order (numerical sorting)
+        const sortedRooms = [...roomsData.data].sort((a, b) => {
+          const roomNumberA = parseInt(a.room_number)
+          const roomNumberB = parseInt(b.room_number)
+          return roomNumberA - roomNumberB
+        })
+        setRooms(sortedRooms)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -522,15 +528,22 @@ export default function BillingPage() {
     }
   }
 
-  const handleBulkReadingsMonthChange = (monthYear: string) => {
+   const handleBulkReadingsMonthChange = (monthYear: string) => {
     const occupiedRooms = rooms.filter(room => room.status === 'occupied')
     
     // Get existing readings for this month
     const existingReadings = electricReadings.filter(r => r.month_year === monthYear)
     
+    // Sort occupied rooms by room number in ascending order (numerical sorting)
+    const sortedOccupiedRooms = [...occupiedRooms].sort((a, b) => {
+      const roomNumberA = parseInt(a.room_number)
+      const roomNumberB = parseInt(b.room_number)
+      return roomNumberA - roomNumberB
+    })
+    
     setBulkReadingsForm({
       month_year: monthYear,
-      readings: occupiedRooms.map(room => {
+      readings: sortedOccupiedRooms.map(room => {
         const existingReading = existingReadings.find(r => r.room_id === room.id)
         return {
           room_id: room.id,
