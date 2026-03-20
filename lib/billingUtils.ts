@@ -1,4 +1,4 @@
-import { Bill, BillItem, Payment, Tenant, Room } from '../types'
+import { Bill, BillItem, Payment, Tenant, Room, BillingRate, ElectricReading } from '../types'
 
 // Centralized function to calculate total bill from bill items
 export const calculateTotalBill = (items: Array<{ amount: number }>): number => {
@@ -220,3 +220,148 @@ export const calculateAverageBillPerTenant = (bills: Bill[], tenants: Tenant[]):
 
   return totalBillAmount / tenants.length
 }
+
+// NEW: Calculate electric bill summary per room per month
+export interface ElectricSummaryItem {
+  room_number: string
+  room_id: string
+  tenant_name: string
+  tenant_id: string
+  month_year: string
+  current_reading?: number
+  next_reading?: number
+  usage_kwh?: number
+  rate?: number
+  electric_amount: number
+  bill_status: 'paid' | 'partial' | 'pending' | 'overdue' | 'no_bill'
+  bill_id?: string
+  row_color: 'green' | 'yellow' | 'red' | 'gray'
+}
+
+export const calculateElectricSummary = (
+  readings: ElectricReading[],
+  rates: BillingRate[],
+  rooms: Room[],
+  tenants: Tenant[],
+  bills: Bill[],
+  payments: Payment[],
+  billItems: BillItem[],
+  monthYear: string
+): ElectricSummaryItem[] => {
+  const occupiedRooms = rooms.filter(room => room.status === 'occupied')
+  const nextMonth = getNextMonth(monthYear) // Reuse util from billing/page
+
+  return occupiedRooms
+    .sort((a, b) => parseInt(a.room_number) - parseInt(b.room_number))
+    .map(room => {
+      const tenant = tenants.find(t => t.room_id === room.id)
+      if (!tenant) {
+        return {
+          room_number: room.room_number,
+          room_id: room.id,
+          tenant_name: 'No Tenant',
+          tenant_id: '',
+          month_year: monthYear,
+          current_reading: undefined,
+          next_reading: undefined,
+          usage_kwh: undefined,
+          rate: undefined,
+          electric_amount: 0,
+          bill_status: 'no_bill' as const,
+          row_color: 'gray' as const,
+        }
+      }
+
+      // Try bill_items first (more accurate if bills generated)
+      const electricItems = billItems.filter(item => 
+        item.item_type === 'electricity' &&
+        bills.some(bill => 
+          bill.id === item.bill_id &&
+          bill.room_id === room.id &&
+          bill.description?.includes(monthYear)
+        )
+      )
+      let electricAmount = electricItems.reduce((sum, item) => sum + item.amount, 0)
+
+      // Fix for no tenant bill matching
+      if (electricAmount === 0 && tenant) {
+        const electricItemsTenant = billItems.filter(item => 
+          item.item_type === 'electricity' &&
+          bills.some(bill => 
+            bill.id === item.bill_id &&
+            bill.tenant_id === tenant.id &&
+            bill.description?.includes(monthYear)
+          )
+        )
+        electricAmount = electricItemsTenant.reduce((sum, item) => sum + item.amount, 0)
+      }
+
+      let billStatus: ElectricSummaryItem['bill_status'] = 'no_bill'
+      let billId: string | undefined
+      let rowColor: ElectricSummaryItem['row_color'] = 'gray'
+      let currentReading: ElectricReading | undefined
+      let nextReading: ElectricReading | undefined
+      let rate: BillingRate | undefined
+      let usageKwh: number | undefined
+
+      // Get readings and rate for calculation (even if bills are generated)
+      currentReading = readings.find(r => r.room_id === room.id && r.month_year === monthYear)
+      nextReading = readings.find(r => r.room_id === room.id && r.month_year === nextMonth)
+      rate = rates.find(r => r.month_year === monthYear)
+
+      if (currentReading && nextReading) {
+        usageKwh = nextReading.reading - currentReading.reading
+      }
+
+      // Fallback to calculation if no bill items
+      if (electricAmount === 0) {
+        if (currentReading && nextReading && rate) {
+          const usage = nextReading.reading - currentReading.reading
+          electricAmount = usage * rate.electricity_rate
+        }
+      }
+
+      // Find bill and status
+      const roomBills = bills.filter(bill => 
+        (bill.tenant_id === tenant.id || bill.room_id === room.id) && 
+        bill.description?.includes(monthYear)
+      )
+      if (roomBills.length > 0) {
+        const bill = roomBills[0]
+        billId = bill.id
+        billStatus = calculateBillStatus(bill, payments)
+        switch (billStatus) {
+          case 'paid': rowColor = 'green'; break
+          case 'partial': rowColor = 'yellow'; break
+          case 'pending':
+          case 'overdue': rowColor = 'red'; break
+        }
+      }
+
+      return {
+        room_number: room.room_number,
+        room_id: room.id,
+        tenant_name: tenant.name,
+        tenant_id: tenant.id,
+        month_year: monthYear,
+        current_reading: currentReading?.reading,
+        next_reading: nextReading?.reading,
+        usage_kwh: usageKwh,
+        rate: rate?.electricity_rate,
+        electric_amount: electricAmount,
+        bill_status: billStatus,
+        bill_id: billId,
+        row_color: rowColor,
+      }
+    })
+    .filter(item => item.electric_amount > 0 || item.bill_status !== 'no_bill')
+}
+
+// Helper function (copied from billing/page.tsx)
+function getNextMonth(monthYear: string): string {
+  const [year, month] = monthYear.split('-').map(Number)
+  const date = new Date(year, month - 1, 1)
+  date.setMonth(date.getMonth() + 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+

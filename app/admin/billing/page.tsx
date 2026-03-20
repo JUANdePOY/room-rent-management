@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
+import Link from 'next/link'
 import { BillingRate, ElectricReading, Tenant, Room, Bill, BillItem, Payment } from '../../../types'
 import { 
   calculateBillItems, 
@@ -573,9 +574,22 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8">
+      {/* Header with Electric Bills Link */}
+      <div className="card mb-8">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900">Billing Configuration</h2>
+          <Link 
+            href="/admin/billing/electric-bills" 
+            className="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white font-medium text-sm rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          >
+            📊 View Electric Bills Summary
+          </Link>
+        </div>
+        <p className="text-gray-600 mt-2">Manage rates, readings, and generate bills. Track electric payments easily.</p>
+      </div>
+
       {/* Generate Bills Section */}
       <div className="card">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900">Generate Monthly Bills</h3>
         <div className="flex space-x-4">
           <input
             type="month"

@@ -48,7 +48,13 @@ export default function TenantPaymentsPage() {
       ])
 
       if (billsData.data) setBills(billsData.data)
-      if (paymentsData.data) setPayments(paymentsData.data)
+      if (paymentsData.data) {
+        // Sort payments by payment date (newest first)
+        const sortedPayments = [...paymentsData.data].sort((a, b) => 
+          new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+        )
+        setPayments(sortedPayments)
+      }
       if (billItemsData.data) setBillItems(billItemsData.data)
     }
 
@@ -253,6 +259,61 @@ export default function TenantPaymentsPage() {
         </button>
       </div>
 
+      {/* Latest Payment Highlight */}
+      {payments.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-100">Latest Payment</h3>
+              <p className="text-2xl font-bold mt-1">
+                ₱{payments[0].amount_paid.toFixed(2)}
+              </p>
+            </div>
+            <div className="bg-white bg-opacity-20 p-3 rounded-full">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-blue-100">Payment Date</p>
+              <p className="font-semibold">{new Date(payments[0].payment_date).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <p className="text-blue-100">Method</p>
+              <p className="font-semibold">{getMethodLabel(payments[0].method)}</p>
+            </div>
+            <div>
+              <p className="text-blue-100">Status</p>
+              <p className="font-semibold">
+                {payments[0].status === 'accepted' ? '✓ Accepted' : 
+                 payments[0].status === 'declined' ? '✗ Declined' : '⏳ Pending'}
+              </p>
+            </div>
+            <div>
+              <p className="text-blue-100">Reference</p>
+              <p className="font-semibold truncate">
+                {payments[0].reference_number || 'No reference'}
+              </p>
+            </div>
+          </div>
+          {payments[0].bill_id && (
+            <div className="mt-4 pt-4 border-t border-blue-400">
+              <p className="text-sm text-blue-100 mb-2">Bill Information</p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">
+                  Bill #{bills.find(b => b.id === payments[0].bill_id)?.id.slice(0, 8)}
+                </span>
+                <span className="text-sm">
+                  Due: {new Date(bills.find(b => b.id === payments[0].bill_id)?.due_date || '').toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -322,7 +383,7 @@ export default function TenantPaymentsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {payments.map((payment) => {
+               {payments.map((payment, index) => {
                 const bill = bills.find(b => b.id === payment.bill_id)
                 
                 // Calculate remaining balance after this payment
@@ -333,7 +394,10 @@ export default function TenantPaymentsPage() {
                 const remaining = bill ? bill.amount - totalPaidUpToThisPayment : 0
 
                 return (
-                  <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                  <tr 
+                    key={payment.id} 
+                    className={`${index === 0 ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50'} transition-colors`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <div className="flex items-center space-x-2 mb-1">

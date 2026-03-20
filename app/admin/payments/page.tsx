@@ -5,7 +5,6 @@ import { supabase } from '../../../lib/supabase'
 import { Payment, Bill, Tenant, BillItem, Room } from '../../../types'
 import { calculateTotalBill, calculateRemainingBill, calculateTotalPaid } from '../../../lib/billingUtils'
 
-
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [bills, setBills] = useState<Bill[]>([])
@@ -15,8 +14,7 @@ export default function PaymentsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [selectedStatus, setSelectedStatus] = useState<'pending' | 'accepted' | 'declined'>('pending')
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'accepted' | 'declined'>('all')
 
   // Handle closing modals with ESC key
   useEffect(() => {
@@ -37,15 +35,12 @@ export default function PaymentsPage() {
           })
           setTotalRemainingBill(0)
         }
-        if (showDetailsModal) {
-          setShowDetailsModal(false)
-        }
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [showModal, showDetailsModal])
+  }, [showModal])
 
   // Handle closing modals by clicking outside
   const handleModalOverlayClick = (e: React.MouseEvent) => {
@@ -65,11 +60,9 @@ export default function PaymentsPage() {
         })
         setTotalRemainingBill(0)
       }
-      if (showDetailsModal) {
-        setShowDetailsModal(false)
-      }
     }
   }
+
   const [formData, setFormData] = useState({
     room_id: '',
     bill_id: '',
@@ -85,7 +78,6 @@ export default function PaymentsPage() {
   const getBillRemainingBalance = (billId: string): number => {
     const bill = bills.find(b => b.id === billId)
     if (!bill) return 0
-    
     return calculateRemainingBill(bill, payments)
   }
   const [totalRemainingBill, setTotalRemainingBill] = useState<number>(0)
@@ -106,15 +98,9 @@ export default function PaymentsPage() {
     
     if (currentMonthBills.length > 0) {
       const currentBill = currentMonthBills[0]
-      
-      // Calculate remaining balance for current month's bill
       const remaining = calculateRemainingBill(currentBill, payments)
       setTotalRemainingBill(remaining)
-      
-      setFormData(prev => ({
-        ...prev,
-        bill_id: currentBill.id
-      }))
+      setFormData(prev => ({ ...prev, bill_id: currentBill.id }))
     } else {
       // If no current month bill, check for pending bills from previous months
       const pendingBills = bills.filter(bill => {
@@ -126,20 +112,12 @@ export default function PaymentsPage() {
         const latestPendingBill = pendingBills.sort((a, b) =>
           new Date(b.due_date).getTime() - new Date(a.due_date).getTime()
         )[0]
-        
         const remaining = calculateRemainingBill(latestPendingBill, payments)
         setTotalRemainingBill(remaining)
-        
-        setFormData(prev => ({
-          ...prev,
-          bill_id: latestPendingBill.id
-        }))
+        setFormData(prev => ({ ...prev, bill_id: latestPendingBill.id }))
       } else {
         setTotalRemainingBill(0)
-        setFormData(prev => ({
-          ...prev,
-          bill_id: ''
-        }))
+        setFormData(prev => ({ ...prev, bill_id: '' }))
       }
     }
   }
@@ -160,7 +138,11 @@ export default function PaymentsPage() {
         console.error('Error fetching payments:', paymentsData.error)
         alert('Failed to fetch payments: ' + paymentsData.error.message)
       } else if (paymentsData.data) {
-        setPayments(paymentsData.data)
+        // Sort payments by payment date (newest first)
+        const sortedPayments = [...paymentsData.data].sort((a, b) => 
+          new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+        )
+        setPayments(sortedPayments)
       }
 
       if (billsData.error) {
@@ -200,11 +182,7 @@ export default function PaymentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { bill_id, room_id, amount_paid, payment_date, method, reference_number, received_by, status } = formData
-    
-    // Get tenant_id from room_id (since payments table still needs tenant_id)
-    const tenant = tenants.find(t => t.room_id === room_id)
-    const tenant_id = tenant?.id || ''
+    const { bill_id, amount_paid, payment_date, method, reference_number, received_by, status } = formData
 
     try {
       if (editingPayment) {
@@ -212,17 +190,16 @@ export default function PaymentsPage() {
           .from('payments')
           .update({
             bill_id,
-            tenant_id,
             amount_paid: parseFloat(amount_paid),
             payment_date,
             method,
             reference_number,
             received_by,
             status,
-            updated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           })
           .eq('id', editingPayment.id)
-          
+        
         if (error) {
           console.error('Error updating payment:', error)
           alert('Failed to update payment: ' + error.message)
@@ -231,7 +208,7 @@ export default function PaymentsPage() {
       } else {
         const { error } = await supabase.from('payments').insert({
           bill_id,
-          tenant_id,
+          tenant_id: tenants.find(t => t.room_id === formData.room_id)?.id,
           amount_paid: parseFloat(amount_paid),
           payment_date,
           method,
@@ -246,146 +223,6 @@ export default function PaymentsPage() {
           console.error('Error creating payment:', error)
           alert('Failed to create payment: ' + error.message)
           return
-        }
-      }
-
-      // Update bill status if bill is specified and payment is accepted
-      if (bill_id && status === 'accepted') {
-        const { data: billPayments } = await supabase
-          .from('payments')
-          .select('amount_paid')
-          .eq('bill_id', bill_id)
-          .eq('status', 'accepted')
-
-        const { data: billItems } = await supabase
-          .from('bill_items')
-          .select('*')
-          .eq('bill_id', bill_id)
-
-        const totalPaid = billPayments?.reduce((sum, payment) => sum + payment.amount_paid, 0) || 0
-        const bill = bills.find(b => b.id === bill_id)
-        
-        if (bill) {
-          const billWithItems = {
-            ...bill,
-            items: billItems || []
-          }
-          
-          const totalBill = billItems && billItems.length > 0 
-            ? billItems.reduce((sum, item) => sum + item.amount, 0) 
-            : bill.amount
-
-          let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
-          
-          if (totalPaid >= totalBill) {
-            newStatus = 'paid'
-          } else if (totalPaid > 0) {
-            newStatus = 'partial'
-          } else if (new Date() > new Date(bill.due_date)) {
-            newStatus = 'overdue'
-          }
-
-          await supabase
-            .from('bills')
-            .update({ 
-              status: newStatus,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', bill_id)
-
-          // Update next month's bill with remaining balance (including overpayments)
-          // Calculate the actual remaining balance after this payment
-          const actualRemainingBalance = totalBill - totalPaid
-          
-          // Get next month's bill for the same tenant
-          const billDate = new Date(bill.due_date)
-          const nextMonth = new Date(billDate.getFullYear(), billDate.getMonth() + 2, 1) // Next month
-          const nextMonthStr = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth() + 1).padStart(2, '0')
-          
-          const { data: nextMonthBills } = await supabase
-            .from('bills')
-            .select('*')
-            .eq('tenant_id', bill.tenant_id)
-            .ilike('description', `%${nextMonthStr}%`)
-
-          if (nextMonthBills && nextMonthBills.length > 0) {
-            const nextBill = nextMonthBills[0]
-            
-            // Get bill items for next month's bill
-            const { data: nextBillItems } = await supabase
-              .from('bill_items')
-              .select('*')
-              .eq('bill_id', nextBill.id)
-
-            // Check if next bill has existing remaining balance item
-            const existingRemainingBalanceItem = nextBillItems?.find(item => item.item_type === 'remaining_balance')
-            
-            if (actualRemainingBalance !== 0) {
-              // If there's an existing remaining balance item, update it
-              if (existingRemainingBalanceItem) {
-                await supabase
-                  .from('bill_items')
-                  .update({ 
-                    amount: actualRemainingBalance,
-                    details: actualRemainingBalance > 0 
-                      ? 'Remaining Balance from Previous Month' 
-                      : 'Credit from Overpayment Last Month'
-                  })
-                  .eq('id', existingRemainingBalanceItem.id)
-              } else {
-                // If there's no existing remaining balance item, create one
-                await supabase
-                  .from('bill_items')
-                  .insert({
-                    bill_id: nextBill.id,
-                    item_type: 'remaining_balance',
-                    amount: actualRemainingBalance,
-                    details: actualRemainingBalance > 0 
-                      ? 'Remaining Balance from Previous Month' 
-                      : 'Credit from Overpayment Last Month',
-                    created_at: new Date().toISOString()
-                  })
-              }
-              
-              // Update the bill amount to include the remaining balance
-              const nextBillItemsSafe = nextBillItems || []
-              const totalBillItems = nextBillItemsSafe.filter(item => item.item_type !== 'remaining_balance')
-                .reduce((sum, item) => sum + item.amount, 0) + actualRemainingBalance
-                
-              await supabase
-                .from('bills')
-                .update({ 
-                  amount: totalBillItems,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', nextBill.id)
-                
-              console.log('Next month bill updated to include remaining balance/credit')
-            } else {
-              // If remaining balance is zero and there's an existing item, remove it
-              if (existingRemainingBalanceItem) {
-                // Calculate new bill amount without remaining balance
-                const nextBillItemsSafe = nextBillItems || []
-                const totalBillItems = nextBillItemsSafe.filter(item => item.item_type !== 'remaining_balance')
-                  .reduce((sum, item) => sum + item.amount, 0)
-                
-                await supabase
-                  .from('bills')
-                  .update({ 
-                    amount: totalBillItems,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', nextBill.id)
-
-                await supabase
-                  .from('bill_items')
-                  .delete()
-                  .eq('id', existingRemainingBalanceItem.id)
-                  
-                console.log('Next month bill updated to remove remaining balance')
-              }
-            }
-          }
         }
       }
 
@@ -420,10 +257,7 @@ export default function PaymentsPage() {
 
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment)
-    
-    // Get room_id from tenant_id (since we need to show the room in the form)
     const tenant = tenants.find(t => t.id === payment.tenant_id)
-    
     setFormData({
       bill_id: payment.bill_id,
       room_id: tenant?.room_id || '',
@@ -444,18 +278,21 @@ export default function PaymentsPage() {
     fetchData()
   }
 
-
-
-  const filteredPayments = payments.filter(payment => 
-    tenants.find(t => t.id === payment.tenant_id)?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.bill_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.amount_paid.toString().includes(searchTerm) ||
-    payment.payment_date.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.method.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (payment.reference_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (payment.received_by || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.status.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Filter payments
+  const filteredPayments = payments.filter(payment => {
+    const matchesStatus = selectedStatus === 'all' || payment.status === selectedStatus
+    const matchesSearch = 
+      tenants.find(t => t.id === payment.tenant_id)?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.bill_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.amount_paid.toString().includes(searchTerm) ||
+      payment.payment_date.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.method.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.reference_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.received_by || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.status.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    return matchesStatus && matchesSearch
+  })
 
   if (loading) {
     return (
@@ -483,64 +320,146 @@ export default function PaymentsPage() {
   const pendingTotal = pendingPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
   const acceptedTotal = acceptedPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
   const declinedTotal = declinedPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
+  const totalPayments = filteredPayments.length
+  const totalAmount = filteredPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
-          >
-            Add Payment
-          </button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Payments</h2>
+          <p className="text-gray-600 mt-1">Manage all payment transactions</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Add Payment</span>
+        </button>
       </div>
 
-      {/* Payment Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-        {/* Pending Payments Card */}
-        <div className="card bg-yellow-50 border-yellow-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Pending Payments</h3>
-            <span className="text-2xl font-bold text-yellow-600">{pendingPayments.length}</span>
-          </div>
-          <div className="mb-4">
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-xl font-bold text-gray-900">₱{pendingTotal.toFixed(2)}</p>
-          </div>
-          {pendingPayments.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-yellow-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tenant
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {pendingPayments.slice(0, 5).map((payment) => {
-                    const tenant = tenants.find(t => t.id === payment.tenant_id)
-                    return (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {tenant?.name}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          ₱{payment.amount_paid.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {new Date(payment.payment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-1">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-600">Total Payments</p>
+          <p className="text-2xl font-bold text-gray-900">{totalPayments}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-600">Total Amount</p>
+          <p className="text-2xl font-bold text-gray-900">₱{totalAmount.toFixed(2)}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-600">Pending Payments</p>
+          <p className="text-2xl font-bold text-yellow-600">{pendingPayments.length}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-600">Accepted Payments</p>
+          <p className="text-2xl font-bold text-green-600">{acceptedPayments.length}</p>
+        </div>
+      </div>
+
+      {/* Filter Controls */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-wrap gap-4 items-center">
+        <div className="flex-1 min-w-[200px]">
+          <input
+            type="text"
+            placeholder="Search payments..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['all', 'pending', 'accepted', 'declined'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setSelectedStatus(status)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedStatus === status
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Payments Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tenant
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Details
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredPayments.map((payment, index) => {
+                const tenant = tenants.find(t => t.id === payment.tenant_id)
+                return (
+                  <tr 
+                    key={payment.id} 
+                    className={`${
+                      index === 0 ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50'
+                    } transition-colors`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-900">{tenant?.name}</span>
+                        {tenant?.room_id && (
+                          <span className="text-sm text-gray-500">Room {rooms.find(r => r.id === tenant.room_id)?.room_number}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-900">
+                          #{payment.id.slice(0, 8)}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(payment.payment_date).toLocaleDateString()}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {getMethodLabel(payment.method)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-lg font-semibold text-gray-900">
+                        ₱{payment.amount_paid.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs font-semibold rounded-full ${
+                        payment.status === 'accepted' ? 'bg-green-100 text-green-800' : 
+                        payment.status === 'declined' ? 'bg-red-100 text-red-800' : 
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-1">
+                      {payment.status === 'pending' && (
+                        <>
                           <button
                             onClick={async () => {
                               const { error } = await supabase
@@ -589,54 +508,6 @@ export default function PaymentsPage() {
                                         updated_at: new Date().toISOString()
                                       })
                                       .eq('id', payment.bill_id)
-
-                                    // If previous month's bill is now paid in full, update current month's bill to remove remaining balance
-                                    if (newStatus === 'paid') {
-                                      const currentDate = new Date()
-                                      const currentMonth = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0')
-                                      
-                                      // Get current month's bill for the same tenant
-                                      const { data: currentMonthBills } = await supabase
-                                        .from('bills')
-                                        .select('*')
-                                        .eq('tenant_id', bill.tenant_id)
-                                        .ilike('description', `%${currentMonth}%`)
-
-                                      if (currentMonthBills && currentMonthBills.length > 0) {
-                                        const currentBill = currentMonthBills[0]
-                                        
-                                        // Get bill items for current month's bill
-                                        const { data: currentBillItems } = await supabase
-                                          .from('bill_items')
-                                          .select('*')
-                                          .eq('bill_id', currentBill.id)
-
-                                        // Check if current bill has remaining balance from previous month
-                                        const remainingBalanceItem = currentBillItems?.find(item => item.item_type === 'remaining_balance')
-                                        
-                                        if (remainingBalanceItem) {
-                                          // Calculate new bill amount without remaining balance
-                                          const newBillAmount = currentBill.amount - remainingBalanceItem.amount
-                                          
-                                          // Update bill amount
-                                          await supabase
-                                            .from('bills')
-                                            .update({ 
-                                              amount: newBillAmount,
-                                              updated_at: new Date().toISOString()
-                                            })
-                                            .eq('id', currentBill.id)
-
-                                          // Remove remaining balance item from bill items
-                                          await supabase
-                                            .from('bill_items')
-                                            .delete()
-                                            .eq('id', remainingBalanceItem.id)
-
-                                          console.log('Current month bill updated to remove remaining balance from previous month')
-                                        }
-                                      }
-                                    }
                                   }
                                 }
                                 fetchData()
@@ -663,728 +534,158 @@ export default function PaymentsPage() {
                           >
                             Decline
                           </button>
-                          <button
-                            onClick={() => handleEdit(payment)}
-                            className="text-blue-600 hover:text-blue-900 text-xs"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {pendingPayments.length === 0 && (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              No pending payments
-            </div>
-          )}
-          {pendingPayments.length > 0 && (
-            <div 
-              className="text-center py-2 text-sm text-blue-600 hover:text-blue-900 cursor-pointer font-medium"
-              onClick={() => {
-                setSelectedStatus('pending')
-                setShowDetailsModal(true)
-              }}
-            >
-              View all {pendingPayments.length} pending payments
-            </div>
-          )}
-        </div>
-
-        {/* Accepted Payments Card */}
-        <div className="card bg-green-50 border-green-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Accepted Payments</h3>
-            <span className="text-2xl font-bold text-green-600">{acceptedPayments.length}</span>
-          </div>
-          <div className="mb-4">
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-xl font-bold text-gray-900">₱{acceptedTotal.toFixed(2)}</p>
-          </div>
-          {acceptedPayments.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-green-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tenant
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleEdit(payment)}
+                        className="text-blue-600 hover:text-blue-900 text-xs"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(payment.id)}
+                        className="text-red-600 hover:text-red-900 text-xs"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {acceptedPayments.slice(0, 5).map((payment) => {
-                    const tenant = tenants.find(t => t.id === payment.tenant_id)
-                    return (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {tenant?.name}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          ₱{payment.amount_paid.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {new Date(payment.payment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-1">
-                          <button
-                            onClick={() => handleEdit(payment)}
-                            className="text-blue-600 hover:text-blue-900 text-xs"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(payment.id)}
-                            className="text-red-600 hover:text-red-900 text-xs"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {acceptedPayments.length === 0 && (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              No accepted payments
-            </div>
-          )}
-          {acceptedPayments.length > 0 && (
-            <div 
-              className="text-center py-2 text-sm text-blue-600 hover:text-blue-900 cursor-pointer font-medium"
-              onClick={() => {
-                setSelectedStatus('accepted')
-                setShowDetailsModal(true)
-              }}
-            >
-              View all {acceptedPayments.length} accepted payments
-            </div>
-          )}
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-
-        {/* Declined Payments Card */}
-        <div className="card bg-red-50 border-red-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Declined Payments</h3>
-            <span className="text-2xl font-bold text-red-600">{declinedPayments.length}</span>
-          </div>
-          <div className="mb-4">
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-xl font-bold text-gray-900">₱{declinedTotal.toFixed(2)}</p>
-          </div>
-          {declinedPayments.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-red-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tenant
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {declinedPayments.slice(0, 5).map((payment) => {
-                    const tenant = tenants.find(t => t.id === payment.tenant_id)
-                    return (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {tenant?.name}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          ₱{payment.amount_paid.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                          {new Date(payment.payment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-1">
-                          <button
-                            onClick={() => handleEdit(payment)}
-                            className="text-blue-600 hover:text-blue-900 text-xs"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(payment.id)}
-                            className="text-red-600 hover:text-red-900 text-xs"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {declinedPayments.length === 0 && (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              No declined payments
-            </div>
-          )}
-          {declinedPayments.length > 0 && (
-            <div 
-              className="text-center py-2 text-sm text-blue-600 hover:text-blue-900 cursor-pointer font-medium"
-              onClick={() => {
-                setSelectedStatus('declined')
-                setShowDetailsModal(true)
-              }}
+        {filteredPayments.length === 0 && (
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-lg text-gray-600 mb-2">No payments found</p>
+            <p className="text-gray-500 mb-6">Get started by adding your first payment</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              View all {declinedPayments.length} declined payments
-            </div>
-          )}
-        </div>
+              Add Payment
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Payments Details Modal */}
-      {showDetailsModal && (
+      {/* Add/Edit Payment Modal */}
+      {showModal && (
         <div 
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
           onClick={handleModalOverlayClick}
         >
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">
-                {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Payments
-              </h3>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="card">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tenant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bill ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bill Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount Paid
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bill Remaining
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Method
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Reference Number
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Received By
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {(() => {
-                      const statusPayments = selectedStatus === 'pending' ? pendingPayments : 
-                                            selectedStatus === 'accepted' ? acceptedPayments : declinedPayments
-                      
-                      return statusPayments.map((payment) => {
-                        const tenant = tenants.find(t => t.id === payment.tenant_id)
-                        const bill = bills.find(b => b.id === payment.bill_id)
-                        
-                        // Calculate remaining balance after this payment
-                        const billPayments = payments.filter(p => 
-                          p.bill_id === payment.bill_id && p.status === 'accepted' && p.id <= payment.id
-                        )
-                        const totalPaidUpToThisPayment = billPayments.reduce((sum, p) => sum + p.amount_paid, 0)
-                        const remaining = bill ? bill.amount - totalPaidUpToThisPayment : 0
-
-                        return (
-                          <tr key={payment.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="font-medium text-gray-900">
-                                {tenant?.name}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {bill?.id.slice(0, 8)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              ₱{bill?.amount.toFixed(2) || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              ₱{payment.amount_paid.toFixed(2)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`font-medium ₱{
-                                remaining > 0 ? 'text-red-600' : 'text-green-600'
-                              }`}>
-                                ₱{remaining.toFixed(2)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {new Date(payment.payment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getMethodLabel(payment.method)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {payment.reference_number}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {payment.received_by}
-                            </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ₱{
-                                  payment.status === 'accepted'
-                                    ? 'bg-green-100 text-green-800'
-                                    : payment.status === 'declined'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {payment.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                {payment.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={async () => {
-                                        const { error } = await supabase
-                                          .from('payments')
-                                          .update({ status: 'accepted', updated_at: new Date().toISOString() })
-                                          .eq('id', payment.id)
-                                        if (error) {
-                                          console.error('Error accepting payment:', error)
-                                          alert('Failed to accept payment: ' + error.message)
-                                        } else {
-                                          // Update bill status if payment is accepted
-                                          if (payment.bill_id) {
-                                            const { data: billPayments } = await supabase
-                                              .from('payments')
-                                              .select('amount_paid')
-                                              .eq('bill_id', payment.bill_id)
-                                              .eq('status', 'accepted')
-
-                                            const totalPaid = billPayments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0
-                                            const bill = bills.find(b => b.id === payment.bill_id)
-                                            
-                                  if (bill) {
-                                    const { data: billItems } = await supabase
-                                      .from('bill_items')
-                                      .select('*')
-                                      .eq('bill_id', bill.id)
-                                      
-                                    const totalBill = billItems && billItems.length > 0 
-                                      ? billItems.reduce((sum, item) => sum + item.amount, 0) 
-                                      : bill.amount
-
-                                    let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = bill.status
-                                    
-                                    if (totalPaid >= totalBill) {
-                                      newStatus = 'paid'
-                                    } else if (totalPaid > 0) {
-                                      newStatus = 'partial'
-                                    } else if (new Date() > new Date(bill.due_date)) {
-                                      newStatus = 'overdue'
-                                    }
-
-                                              await supabase
-                                                .from('bills')
-                                                .update({ 
-                                                  status: newStatus,
-                                                  updated_at: new Date().toISOString()
-                                                })
-                                                .eq('id', payment.bill_id)
-
-                                              // If previous month's bill is now paid in full, update current month's bill to remove remaining balance
-                                              if (newStatus === 'paid') {
-                                                const currentDate = new Date()
-                                                const currentMonth = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0')
-                                                
-                                                // Get current month's bill for the same tenant
-                                                const { data: currentMonthBills } = await supabase
-                                                  .from('bills')
-                                                  .select('*')
-                                                  .eq('tenant_id', bill.tenant_id)
-                                                  .ilike('description', `%${currentMonth}%`)
-
-                                                if (currentMonthBills && currentMonthBills.length > 0) {
-                                                  const currentBill = currentMonthBills[0]
-                                                  
-                                                  // Get bill items for current month's bill
-                                                  const { data: currentBillItems } = await supabase
-                                                    .from('bill_items')
-                                                    .select('*')
-                                                    .eq('bill_id', currentBill.id)
-
-                                                  // Check if current bill has remaining balance from previous month
-                                                  const remainingBalanceItem = currentBillItems?.find(item => item.item_type === 'remaining_balance')
-                                                  
-                                                  if (remainingBalanceItem) {
-                                                    // Calculate new bill amount without remaining balance
-                                                    const newBillAmount = currentBill.amount - remainingBalanceItem.amount
-                                                    
-                                                    // Update bill amount
-                                                    await supabase
-                                                      .from('bills')
-                                                      .update({ 
-                                                        amount: newBillAmount,
-                                                        updated_at: new Date().toISOString()
-                                                      })
-                                                      .eq('id', currentBill.id)
-
-                                                    // Remove remaining balance item from bill items
-                                                    await supabase
-                                                      .from('bill_items')
-                                                      .delete()
-                                                      .eq('id', remainingBalanceItem.id)
-
-                                                    console.log('Current month bill updated to remove remaining balance from previous month')
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          }
-                                          fetchData()
-                                        }
-                                      }}
-                                      className="text-green-600 hover:text-green-900"
-                                    >
-                                      Accept
-                                    </button>
-                                    <button
-                                      onClick={async () => {
-                                        const { error } = await supabase
-                                          .from('payments')
-                                          .update({ status: 'declined', updated_at: new Date().toISOString() })
-                                          .eq('id', payment.id)
-                                        if (error) {
-                                          console.error('Error declining payment:', error)
-                                          alert('Failed to decline payment: ' + error.message)
-                                        } else {
-                                          fetchData()
-                                        }
-                                      }}
-                                      className="text-red-600 hover:text-red-900"
-                                    >
-                                      Decline
-                                    </button>
-                                  </>
-                                )}
-                                <button
-                                  onClick={() => handleEdit(payment)}
-                                  className="text-blue-600 hover:text-blue-900"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(payment.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                          </tr>
-                        )
-                      })
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModal && (
-         <div 
-           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50"
-           onClick={handleModalOverlayClick}
-         >
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingPayment ? 'Edit Payment' : 'Add Payment'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="label">Room</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
                 <select
                   value={formData.room_id}
                   onChange={(e) => {
                     const roomId = e.target.value
-                    setFormData({
-                      ...formData,
-                      room_id: roomId
-                    })
-                    if (roomId) {
-                      calculateTotalRemainingBill(roomId)
-                    } else {
-                      setTotalRemainingBill(0)
-                      setFormData(prev => ({
-                        ...prev,
-                        bill_id: ''
-                      }))
-                    }
+                    setFormData(prev => ({ ...prev, room_id: roomId }))
+                    calculateTotalRemainingBill(roomId)
                   }}
-                  className="input-field"
-                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 >
                   <option value="">Select Room</option>
-                  {[...rooms].sort((a, b) => {
-                    // Sort by room number (numerically)
-                    const numA = parseInt(a.room_number)
-                    const numB = parseInt(b.room_number)
-                    if (!isNaN(numA) && !isNaN(numB)) {
-                      return numA - numB
-                    }
-                    // If numbers can't be parsed, sort alphabetically
-                    return a.room_number.localeCompare(b.room_number)
-                  }).map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.room_number} ({room.type})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-
-
-              <div>
-                <label className="label">Bill (Optional)</label>
-                <select
-                  value={formData.bill_id}
-                  onChange={(e) => setFormData({ ...formData, bill_id: e.target.value })}
-                  className="input-field"
-                >
-                  <option value="">Select Bill (Optional)</option>
-                  {bills.filter(bill => bill.room_id === formData.room_id).map((bill) => {
-                    const tenant = tenants.find(t => t.id === bill.tenant_id)
-                    const remaining = getBillRemainingBalance(bill.id)
+                  {rooms.map((room) => {
+                    const tenant = tenants.find(t => t.room_id === room.id)
                     return (
-                      <option key={bill.id} value={bill.id}>
-                         Bill #{bill.id.slice(0, 8)} - ₱{bill.amount.toFixed(2)} (Remaining: ₱{remaining.toFixed(2)}) - Due: {new Date(bill.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      <option key={room.id} value={room.id}>
+                        Room {room.room_number} - {tenant?.name || 'Vacant'}
                       </option>
                     )
                   })}
                 </select>
               </div>
 
-              {/* Detailed Bill Items Breakdown */}
-              {formData.bill_id && (
-                <div>
-                  <label className="label">Bill Breakdown</label>
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                    {(() => {
-                      const selectedBill = bills.find(b => b.id === formData.bill_id)
-                      if (!selectedBill) return null
-
-                      const items = billItems.filter(item => item.bill_id === formData.bill_id)
-                      if (items.length === 0) {
-                        return <div className="text-sm text-gray-500">No detailed items available for this bill</div>
-                      }
-
-                      const billPayments = payments.filter(payment => 
-                        payment.bill_id === formData.bill_id && payment.status === 'accepted'
-                      )
-                      const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
-
-                      return (
-                        <>
-                          {items.map((item, index) => {
-                            const paymentAllocation = item.amount / selectedBill.amount
-                            const itemPaid = totalPaid * paymentAllocation
-                            const itemRemaining = item.amount - itemPaid
-                            const paymentAmountForItem = parseFloat(formData.amount_paid || '0') * paymentAllocation
-                            const itemRemainingAfterPayment = itemRemaining - paymentAmountForItem
-
-                            return (
-                              <div key={index} className="text-sm">
-                                <div className="flex justify-between">
-                                  <span className="font-medium">{item.item_type}:</span>
-                                  <span>₱{item.amount.toFixed(2)}</span>
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  Paid: ₱{itemPaid.toFixed(2)} | Remaining: <span className={itemRemaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{itemRemaining.toFixed(2)}</span>
-                                  {parseFloat(formData.amount_paid || '0') > 0 && (
-                                    <span className="ml-2">
-                                      After Payment: <span className={itemRemainingAfterPayment > 0 ? 'text-red-600' : 'text-green-600'}>₱{itemRemainingAfterPayment.toFixed(2)}</span>
-                                    </span>
-                                  )}
-                                </div>
-                                {item.details && (
-                                  <div className="text-xs text-gray-500 mt-1">{item.details}</div>
-                                )}
-                              </div>
-                            )
-                          })}
-                          <div className="border-t border-gray-300 mt-2 pt-2">
-                            <div className="flex justify-between font-medium">
-                              <span>Total:</span>
-                              <span>₱{selectedBill.amount.toFixed(2)}</span>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              {(() => {
-                                const remaining = getBillRemainingBalance(formData.bill_id)
-                                const afterPayment = remaining - parseFloat(formData.amount_paid || '0')
-                                return (
-                                  <>
-                                    Paid: ₱{totalPaid.toFixed(2)} | Remaining: <span className={remaining > 0 ? 'text-red-600' : 'text-green-600'}>₱{remaining.toFixed(2)}</span>
-                                    {parseFloat(formData.amount_paid || '0') > 0 && (
-                                      <span className="ml-2">
-                                        After Payment: <span className={afterPayment > 0 ? 'text-red-600' : 'text-green-600'}>₱{afterPayment.toFixed(2)}</span>
-                                      </span>
-                                    )}
-                                  </>
-                                )
-                              })()}
-                            </div>
-                          </div>
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-              )}
               <div>
-                <label className="label">Amount Paid</label>
-                <div className="space-y-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.amount_paid}
-                    onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
-                    className="input-field"
-                    required
-                    placeholder="Enter amount"
-                  />
-                  {formData.bill_id && (
-                    <div className="text-sm text-gray-600">
-                      Bill Balance: ₱{getBillRemainingBalance(formData.bill_id).toFixed(2)}
-                      {parseFloat(formData.amount_paid) > 0 && (
-                        <span className="ml-2">
-                          After Payment: ₱{(getBillRemainingBalance(formData.bill_id) - parseFloat(formData.amount_paid)).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.amount_paid}
+                  onChange={(e) => setFormData(prev => ({ ...prev, amount_paid: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                />
               </div>
+
               <div>
-                <label className="label">Payment Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                 <input
                   type="date"
                   value={formData.payment_date}
-                  onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                  className="input-field"
-                  required
+                  onChange={(e) => setFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 />
               </div>
+
               <div>
-                <label className="label">Payment Method</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                 <div className="space-y-2">
-                  {[
-                    { value: 'gcash', label: 'GCash' },
-                    { value: 'bank', label: 'Bank Transfer' },
-                    { value: 'in_person', label: 'In Person' },
-                  ].map((method) => (
-                    <div key={method.value} className="flex items-center">
+                  {(['gcash', 'bank', 'in_person'] as const).map((method) => (
+                    <label key={method} className="flex items-center">
                       <input
                         type="radio"
-                        id={method.value}
-                        name="paymentMethod"
-                        value={method.value}
-                        checked={formData.method === method.value}
-                        onChange={() => handleMethodChange(method.value as 'gcash' | 'bank' | 'in_person')}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        required
+                        value={method}
+                        checked={formData.method === method}
+                        onChange={() => handleMethodChange(method)}
+                        className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300"
                       />
-                      <label htmlFor={method.value} className="ml-2 block text-sm text-gray-700">
-                        {method.label}
-                      </label>
-                    </div>
+                      <span className="ml-2 text-sm text-gray-900">{getMethodLabel(method)}</span>
+                    </label>
                   ))}
                 </div>
               </div>
 
-              {formData.method && formData.method !== 'in_person' && (
-                <div>
-                  <label className="label">Reference Number</label>
-                  <input
-                    type="text"
-                    value={formData.reference_number}
-                    onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                    className="input-field"
-                    required
-                    placeholder="Enter reference number"
-                  />
-                </div>
+              {formData.method && (
+                <>
+                  {formData.method !== 'in_person' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
+                      <input
+                        type="text"
+                        value={formData.reference_number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, reference_number: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                      />
+                    </div>
+                  )}
+                  {formData.method === 'in_person' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+                      <input
+                        type="text"
+                        value={formData.received_by}
+                        onChange={(e) => setFormData(prev => ({ ...prev, received_by: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
-              {formData.method === 'in_person' && (
-                <div>
-                  <label className="label">Received By</label>
-                  <input
-                    type="text"
-                    value={formData.received_by}
-                    onChange={(e) => setFormData({ ...formData, received_by: e.target.value })}
-                    className="input-field"
-                    required
-                    placeholder="Enter name of person who received payment"
-                  />
-                </div>
-              )}
               <div>
-                <label className="label">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="input-field"
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'pending' | 'accepted' | 'declined' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 >
                   <option value="pending">Pending</option>
                   <option value="accepted">Accepted</option>
                   <option value="declined">Declined</option>
                 </select>
               </div>
+
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
