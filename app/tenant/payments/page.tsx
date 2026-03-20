@@ -445,17 +445,28 @@ export default function TenantPaymentsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {payment.receipt_image ? (
-                        <a
-                          href={payment.receipt_image}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-900 text-sm font-medium"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                          <span>View Receipt</span>
-                        </a>
+                        <div className="space-y-2">
+                          <img 
+                            src={payment.receipt_image} 
+                            alt="Receipt"
+                            className="w-24 h-24 object-contain bg-gray-100 rounded-lg border shadow-sm hover:shadow-md transition-shadow max-w-[96px] max-h-[96px]"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                            }}
+                          />
+                          <a
+                            href={payment.receipt_image}
+                            download={`receipt-${payment.id}.jpg`}
+                            className="inline-flex items-center justify-center w-full px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10l-5.5 5.5m0 0L12 21l5.5-5.5m-5.5 5.5V8a1 1 0 011-1h4a1 1 0 011 1v9.5" />
+                            </svg>
+                            Download
+                          </a>
+                          <div className="hidden text-xs text-gray-500 text-center">Image failed to load</div>
+                        </div>
                       ) : (
                         <span className="text-gray-400 text-sm">No receipt</span>
                       )}
