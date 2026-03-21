@@ -207,7 +207,7 @@ export default function PaymentsPage() {
         }
       } else {
         const { error } = await supabase.from('payments').insert({
-          bill_id,
+          bill_id: bill_id || null,
           tenant_id: tenants.find(t => t.room_id === formData.room_id)?.id,
           amount_paid: parseFloat(amount_paid),
           payment_date,

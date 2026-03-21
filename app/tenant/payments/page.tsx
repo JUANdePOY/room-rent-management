@@ -158,7 +158,7 @@ export default function TenantPaymentsPage() {
 
     try {
       const { error } = await supabase.from('payments').insert({
-        bill_id,
+        bill_id: bill_id || null,
         tenant_id: tenant?.id,
         amount_paid: parseFloat(amount_paid),
         payment_date,
