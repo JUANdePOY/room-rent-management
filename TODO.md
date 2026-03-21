@@ -1,47 +1,50 @@
-# Resolve Vercel Deployment Timeout for mamahause.vercel.app [NEARLY COMPLETE ✅]
+# Resolve Vercel SSL/HSTS Error for mamahause.vercel.app [UPDATED]
 
 ## Current Status
-✅ Previous origin error fixed
-✅ vercel.json rewrite loop fixed
-✅ Local build/start working
-❌ Need Vercel env vars set (main cause)
+✅ Timeout fixed
+⚠️  HSTS/Cert error (caused by preload headers + alias cert)
+✅ Configs updated
 
-## Step-by-Step Fix Plan - Progress
+## New Diagnosis
+**Progress**: Site responds (no timeout!) but ERR_CERT_AUTHORITY_INVALID
+**Cause**: HSTS preload + Vercel custom domain cert issue
 
-### 1. Fix Vercel Config [COMPLETED ✅]
-- Removed catch-all rewrite from vercel.json (prevents loops)
-- Kept security headers
+## Step-by-Step Fix
 
-### 2. Set Environment Variables on Vercel [USER ACTION - CRITICAL]
-**Required vars:**
-- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL (e.g. https://xyz.supabase.co)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your public anon key
+### 1. Configs Fixed [COMPLETED ✅]
+- vercel.json: HSTS/CSP commented out
+- next.config.js: HSTS preload/CSP commented out
+- Kept safe headers (X-Frame/XSS/Content-Type)
 
-**How:**
-1. vercel.com > project > Settings > Environment Variables
-2. Add 2 vars (Production scope)
-3. Redeploy / git push triggers new build
+### 2. Clear Browser HSTS [USER IMMEDIATE]
+1. chrome://net-internals/#hsts
+2. Domain: `mamahause.vercel.app` → Delete
+3. Reload site
 
-### 3. Test Local Build [COMPLETED ✅]
-- `npm run build` success
-- `npm start` running (localhost:3000)
+### 3. Test Production URL [NOW]
+https://room-rent-management-nnkurjnqu-juandepoys-projects.vercel.app
+(This has valid Vercel cert)
 
-### 4. Deploy & Verify [READY]
+### 4. Deploy Changes [READY]
 ```
 git add .
-git commit -m \"Fix vercel config + ready for env\"
+git commit -m \"Disable HSTS for SSL debugging\"
 git push
 ```
-Test: https://mamahause.vercel.app
 
-### 5. Logs if needed
-`npx vercel logs mamahause.vercel.app -f`
+### 5. Fix Alias Cert (Long-term)
+Vercel dashboard > Domains > mamahause.vercel.app:
+- Add DNS records (if custom domain)
+- Wait cert propagation (24h)
+- Re-enable HSTS later
 
-## Why timeout happened
-1. Catch-all rewrite → infinite loop potential
-2. Missing Supabase env → JS throw on homepage → crash/timeout
+### 6. Set Supabase Env Vars [STILL NEEDED]
+Vercel > Settings > Env Vars:
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 ## Expected Result
-✅ Site loads instantly with login form
+✅ Site loads without cert errors
+✅ Login works (post env vars)
 
-**Next: Set Vercel env vars → push → live!**
+**Priority: Clear HSTS → test production URL → push → retest!**

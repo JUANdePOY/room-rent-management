@@ -5,14 +5,15 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: [
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "upgrade-insecure-requests",
-          },
+          // Temporarily disabled HSTS/CSP for Vercel alias cert debugging
+          // {
+          //   key: 'Strict-Transport-Security',
+          //   value: 'max-age=31536000; includeSubDomains; preload',
+          // },
+          // {
+          //   key: 'Content-Security-Policy',
+          //   value: "upgrade-insecure-requests",
+          // },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -32,3 +33,4 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
+
