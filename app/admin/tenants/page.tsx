@@ -13,6 +13,9 @@ export default function TenantsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState('asc')
+  const [filterRoom, setFilterRoom] = useState('all')
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
   const [tenantDetails, setTenantDetails] = useState<{
     room: Room | null
@@ -384,12 +387,59 @@ export default function TenantsPage() {
     }
   }
 
-  const filteredTenants = tenants.filter(tenant => 
-    tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    rooms.find(r => r.id === tenant.room_id)?.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    users.find(u => u.id === tenant.user_id)?.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Filter and sort tenants
+  const filteredTenants = tenants
+    .filter(tenant => {
+      // Search filter
+      const matchesSearch = 
+        tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tenant.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rooms.find(r => r.id === tenant.room_id)?.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        users.find(u => u.id === tenant.user_id)?.email.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      // Room filter
+      const matchesRoom = filterRoom === 'all' || tenant.room_id === filterRoom
+      
+      return matchesSearch && matchesRoom
+    })
+    .sort((a, b) => {
+      let aValue, bValue
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+          break
+        case 'room':
+          aValue = rooms.find(r => r.id === a.room_id)?.room_number.toLowerCase() || ''
+          bValue = rooms.find(r => r.id === b.room_id)?.room_number.toLowerCase() || ''
+          // Handle numerical room numbers
+          const aNum = parseInt(aValue)
+          const bNum = parseInt(bValue)
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            aValue = aNum
+            bValue = bNum
+          }
+          break
+        case 'start_date':
+          aValue = new Date(a.start_date).getTime()
+          bValue = new Date(b.start_date).getTime()
+          break
+        case 'contact':
+          aValue = a.contact.toLowerCase()
+          bValue = b.contact.toLowerCase()
+          break
+        default:
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+      }
+    })
 
   if (loading) {
     return (
@@ -401,31 +451,77 @@ export default function TenantsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="w-full max-w-md">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="w-full max-w-md">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search tenants..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search tenants..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
+          </div>
+           <div className="flex space-x-4">
+              <button
+               onClick={() => setShowModal(true)}
+               className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
+             >
+               Add Tenant
+             </button>
+           </div>
+        </div>
+
+        {/* Filter and Sort Controls */}
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Sort By */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="sortBy" className="text-sm font-medium text-gray-700">Sort by:</label>
+            <select
+              id="sortBy"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="name">Name</option>
+              <option value="room">Room</option>
+              <option value="start_date">Start Date</option>
+              <option value="contact">Contact</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
+              title={sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Room Filter */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="filterRoom" className="text-sm font-medium text-gray-700">Room:</label>
+            <select
+              id="filterRoom"
+              value={filterRoom}
+              onChange={(e) => setFilterRoom(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="all">All</option>
+              {rooms.map(room => (
+                <option key={room.id} value={room.id}>{room.room_number}</option>
+              ))}
+            </select>
           </div>
         </div>
-         <div className="flex space-x-4">
-            <button
-             onClick={() => setShowModal(true)}
-             className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
-           >
-             Add Tenant
-           </button>
-         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

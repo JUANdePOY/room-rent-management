@@ -402,7 +402,6 @@ export default function ElectricBillsPage() {
                         type="number"
                         step="0.01"
                         min="0"
-                        max={selectedItem.electric_amount}
                         value={paymentForm.amountPaid || ''}
                         onChange={(e) => setPaymentForm(prev => ({
                           ...prev,

@@ -81,7 +81,7 @@ export interface Bill {
 
 export interface Payment {
   id: string
-  bill_id: string
+  bill_id?: string
   tenant_id: string
   amount_paid: number
   payment_date: string

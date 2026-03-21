@@ -10,6 +10,10 @@ export default function RoomsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingRoom, setEditingRoom] = useState<Room | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState('room_number')
+  const [sortOrder, setSortOrder] = useState('asc')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterType, setFilterType] = useState('all')
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [roomDetails, setRoomDetails] = useState<{
     tenant: Tenant | null
@@ -178,12 +182,63 @@ export default function RoomsPage() {
     fetchRooms()
   }
 
-  const filteredRooms = rooms.filter(room => 
-    room.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    room.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (room.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    room.status.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Filter and sort rooms
+  const filteredRooms = rooms
+    .filter(room => {
+      // Search filter
+      const matchesSearch = 
+        room.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (room.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.status.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      // Status filter
+      const matchesStatus = filterStatus === 'all' || room.status === filterStatus
+      
+      // Type filter
+      const matchesType = filterType === 'all' || room.type.toLowerCase() === filterType.toLowerCase()
+      
+      return matchesSearch && matchesStatus && matchesType
+    })
+    .sort((a, b) => {
+      let aValue, bValue
+      
+      switch (sortBy) {
+        case 'room_number':
+          // Handle numerical room numbers properly
+          const aNum = parseInt(a.room_number)
+          const bNum = parseInt(b.room_number)
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            aValue = aNum
+            bValue = bNum
+          } else {
+            aValue = a.room_number.toLowerCase()
+            bValue = b.room_number.toLowerCase()
+          }
+          break
+        case 'type':
+          aValue = a.type.toLowerCase()
+          bValue = b.type.toLowerCase()
+          break
+        case 'rent_amount':
+          aValue = a.rent_amount
+          bValue = b.rent_amount
+          break
+        case 'status':
+          aValue = a.status.toLowerCase()
+          bValue = b.status.toLowerCase()
+          break
+        default:
+          aValue = a.room_number.toLowerCase()
+          bValue = b.room_number.toLowerCase()
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+      }
+    })
 
   if (loading) {
     return (
@@ -195,30 +250,92 @@ export default function RoomsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="w-full max-w-md">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="w-full max-w-md">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search rooms..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search rooms..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
+          </div>
+           <div className="flex space-x-4">
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary"
+            >
+              Add Room
+            </button>
           </div>
         </div>
-         <div className="flex space-x-4">
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary"
-          >
-            Add Room
-          </button>
+
+        {/* Filter and Sort Controls */}
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Sort By */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="sortBy" className="text-sm font-medium text-gray-700">Sort by:</label>
+            <select
+              id="sortBy"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="room_number">Room Number</option>
+              <option value="type">Type</option>
+              <option value="rent_amount">Rent Amount</option>
+              <option value="status">Status</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
+              title={sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="filterStatus" className="text-sm font-medium text-gray-700">Status:</label>
+            <select
+              id="filterStatus"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="all">All</option>
+              <option value="available">Available</option>
+              <option value="occupied">Occupied</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="filterType" className="text-sm font-medium text-gray-700">Type:</label>
+            <select
+              id="filterType"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="all">All</option>
+              {Array.from(new Set(rooms.map(room => room.type.toLowerCase()))).map(type => (
+                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

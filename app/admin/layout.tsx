@@ -77,7 +77,7 @@ export default function AdminLayout({
       {/* Desktop Layout */}
       <div className="hidden md:flex">
         <aside 
-          className={`bg-white shadow-lg min-h-screen transition-all duration-300 ease-in-out flex flex-col rounded-r-2xl ${
+          className={`bg-white shadow-lg fixed left-0 top-0 h-screen transition-all duration-300 ease-in-out flex flex-col rounded-r-2xl z-40 ${
             sidebarOpen ? 'w-64' : 'w-16'
           }`}
           onMouseEnter={() => setSidebarOpen(true)}
@@ -213,7 +213,9 @@ export default function AdminLayout({
           </div>
         </aside>
 
-        <div className="flex-1 flex flex-col p-8 md:p-10">
+        <div className={`flex-1 flex flex-col p-8 md:p-10 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? 'ml-64' : 'ml-16'
+        }`}>
           <div className="flex-1 bg-white rounded-2xl shadow-lg p-10 md:p-12">
             <header className="mb-8">
               <div className="flex justify-between items-center">

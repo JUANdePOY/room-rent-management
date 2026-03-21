@@ -259,7 +259,7 @@ export default function PaymentsPage() {
     setEditingPayment(payment)
     const tenant = tenants.find(t => t.id === payment.tenant_id)
     setFormData({
-      bill_id: payment.bill_id,
+      bill_id: payment.bill_id || '',
       room_id: tenant?.room_id || '',
       amount_paid: payment.amount_paid.toString(),
       payment_date: payment.payment_date,
@@ -283,7 +283,7 @@ export default function PaymentsPage() {
     const matchesStatus = selectedStatus === 'all' || payment.status === selectedStatus
     const matchesSearch = 
       tenants.find(t => t.id === payment.tenant_id)?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.bill_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.bill_id ? payment.bill_id.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
       payment.amount_paid.toString().includes(searchTerm) ||
       payment.payment_date.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.method.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -595,7 +595,7 @@ export default function PaymentsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 >
                   <option value="">Select Room</option>
-                  {rooms.map((room) => {
+                  {rooms.filter(room => room.status === 'occupied').map((room) => {
                     const tenant = tenants.find(t => t.room_id === room.id)
                     return (
                       <option key={room.id} value={room.id}>

@@ -329,12 +329,33 @@ export const calculateElectricSummary = (
       if (roomBills.length > 0) {
         const bill = roomBills[0]
         billId = bill.id
-        billStatus = calculateBillStatus(bill, payments)
-        switch (billStatus) {
-          case 'paid': rowColor = 'green'; break
-          case 'partial': rowColor = 'yellow'; break
-          case 'pending':
-          case 'overdue': rowColor = 'red'; break
+        
+        // Custom logic for electric bill status: consider electric bill as paid if exact electric amount is paid
+        // even if other bill types remain unpaid
+        const electricBillItems = billItems.filter(item => 
+          item.bill_id === bill.id && item.item_type === 'electricity'
+        )
+        const totalElectricAmount = electricBillItems.reduce((sum, item) => sum + item.amount, 0)
+        
+        // Get all accepted payments for this bill
+        const billPayments = payments.filter(payment => 
+          payment.bill_id === bill.id && payment.status === 'accepted'
+        )
+        const totalPaid = billPayments.reduce((sum, payment) => sum + payment.amount_paid, 0)
+        
+        // Check if total paid equals the electric bill amount
+        if (totalPaid >= totalElectricAmount && totalElectricAmount > 0) {
+          billStatus = 'paid'
+          rowColor = 'green'
+        } else if (totalPaid > 0) {
+          billStatus = 'partial'
+          rowColor = 'yellow'
+        } else {
+          // Check if bill is overdue
+          const dueDate = new Date(bill.due_date)
+          const now = new Date()
+          billStatus = now > dueDate ? 'overdue' : 'pending'
+          rowColor = billStatus === 'overdue' ? 'red' : 'red'
         }
       }
 
