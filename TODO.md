@@ -1,34 +1,47 @@
-# Fix Vercel Deployment Origin Error - COMPLETED ✅
+# Resolve Vercel Deployment Timeout for mamahause.vercel.app [NEARLY COMPLETE ✅]
 
-## Original Issue
-Unsafe attempt to load URL `https://mamahause.vercel.app/` from frame with URL `chrome-error://chromewebdata/`. Domains mismatch.
+## Current Status
+✅ Previous origin error fixed
+✅ vercel.json rewrite loop fixed
+✅ Local build/start working
+❌ Need Vercel env vars set (main cause)
 
-## Root Cause
-`app/tenant/payments/page.tsx` used `target="_blank"` on Supabase `receipt_image` URLs, triggering Chrome Same-Origin Policy violation.
+## Step-by-Step Fix Plan - Progress
 
-## Fix Applied
-**Date**: Current deployment  
-**File**: `app/tenant/payments/page.tsx`  
-**Change**: Replaced problematic link with:
-- ✅ Inline 96x96px image preview (no popups)
-- ✅ Safe download button (`download` attribute)
-- ✅ Error handling + fallback text
-- ✅ Mobile-responsive design
+### 1. Fix Vercel Config [COMPLETED ✅]
+- Removed catch-all rewrite from vercel.json (prevents loops)
+- Kept security headers
 
-## Deployment Confirmation
+### 2. Set Environment Variables on Vercel [USER ACTION - CRITICAL]
+**Required vars:**
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL (e.g. https://xyz.supabase.co)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your public anon key
+
+**How:**
+1. vercel.com > project > Settings > Environment Variables
+2. Add 2 vars (Production scope)
+3. Redeploy / git push triggers new build
+
+### 3. Test Local Build [COMPLETED ✅]
+- `npm run build` success
+- `npm start` running (localhost:3000)
+
+### 4. Deploy & Verify [READY]
 ```
-✅ Production: https://room-rent-management-nnkurjnqu-juandepoys-projects.vercel.app
-🔗 Aliased: https://mamahause.vercel.app
+git add .
+git commit -m \"Fix vercel config + ready for env\"
+git push
 ```
+Test: https://mamahause.vercel.app
 
-## Verification Steps (Completed by user)
-1. Navigate to `/tenant/payments`
-2. Receipts display as thumbnails 
-3. Download buttons work without browser errors
-4. No more Chrome origin policy violations
+### 5. Logs if needed
+`npx vercel logs mamahause.vercel.app -f`
 
-## Result
-**Chrome error permanently eliminated.** Receipts now display/download safely across all environments.
+## Why timeout happened
+1. Catch-all rewrite → infinite loop potential
+2. Missing Supabase env → JS throw on homepage → crash/timeout
 
-**Status**: ✅ RESOLVED
+## Expected Result
+✅ Site loads instantly with login form
 
+**Next: Set Vercel env vars → push → live!**
