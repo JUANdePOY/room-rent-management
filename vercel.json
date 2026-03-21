@@ -3,15 +3,6 @@
     {
       "source": "/(.*)",
       "headers": [
-        // Temporarily disabled for cert debugging
-        // {
-        //   "key": "Strict-Transport-Security",
-        //   "value": "max-age=31536000; includeSubDomains"
-        // },
-        // {
-        //   "key": "Content-Security-Policy",
-        //   "value": "upgrade-insecure-requests"
-        // },
         {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
@@ -24,4 +15,3 @@
     }
   ]
 }
-
