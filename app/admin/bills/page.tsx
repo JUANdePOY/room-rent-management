@@ -519,8 +519,8 @@ export default function BillsPage() {
 
        {/* Month Details Modal */}
       {showMonthDetailsModal && selectedMonth && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-gray-900">
                 Bills for {Object.values(monthlySummaries).find(s => s.monthKey === selectedMonth)?.monthName}
@@ -669,8 +669,8 @@ export default function BillsPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && selectedBill && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Pay Bill - Room {rooms.find(r => r.id === selectedBill.room_id)?.room_number}
@@ -823,8 +823,8 @@ export default function BillsPage() {
 
       {/* Add/Edit Bill Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingBill ? 'Edit Bill' : 'Add Bill'}
             </h3>

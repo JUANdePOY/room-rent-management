@@ -574,11 +574,11 @@ export default function PaymentsPage() {
 
       {/* Add/Edit Payment Modal */}
       {showModal && (
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-2 sm:p-4"
           onClick={handleModalOverlayClick}
         >
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingPayment ? 'Edit Payment' : 'Add Payment'}
             </h3>

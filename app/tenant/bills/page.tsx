@@ -631,8 +631,8 @@ export default function TenantBillsPage() {
 
       {/* Enhanced Payment Modal */}
       {showPaymentModal && selectedBill && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
-          <div className="bg-white rounded-t-xl sm:rounded-xl p-6 w-full max-w-md sm:max-w-lg mx-4 my-4 max-h-[80vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-xl sm:rounded-xl p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-lg mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-900">
                 Pay Bill - ₱{selectedBill.amount.toFixed(2)}
@@ -657,23 +657,23 @@ export default function TenantBillsPage() {
             </div>
             
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Total Bill Amount</span>
-                  <span className="text-lg font-bold text-gray-900">₱{selectedBill.amount.toFixed(2)}</span>
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 sm:p-4 rounded-lg">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">Total Bill Amount</span>
+                  <span className="text-base sm:text-lg font-bold text-gray-900">₱{selectedBill.amount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-sm font-medium text-gray-700">Amount Paid</span>
-                  <span className="text-lg font-bold text-green-600">₱{(selectedBill as any).totalPaid.toFixed(2)}</span>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 sm:mt-1 gap-1 sm:gap-0">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">Amount Paid</span>
+                  <span className="text-base sm:text-lg font-bold text-green-600">₱{(selectedBill as any).totalPaid.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                    <span className="text-sm font-medium text-gray-700">Remaining Balance</span>
-                    <span className="text-lg font-bold text-red-600">₱{calculateRemainingBill(selectedBill, payments).toFixed(2)}</span>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 sm:mt-1 gap-1 sm:gap-0">
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Remaining Balance</span>
+                    <span className="text-base sm:text-lg font-bold text-red-600">₱{calculateRemainingBill(selectedBill, payments).toFixed(2)}</span>
                   </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount to Pay</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Amount to Pay</label>
                 <div className="space-y-2">
                   <input
                     type="number"
@@ -684,7 +684,7 @@ export default function TenantBillsPage() {
                       ...prev,
                       amountPaid: e.target.value ? parseFloat(e.target.value) : 0
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     placeholder="Enter amount"
                   />
@@ -694,8 +694,8 @@ export default function TenantBillsPage() {
               {/* Detailed Bill Items Breakdown */}
               {selectedBill.items && selectedBill.items.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bill Breakdown</label>
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Bill Breakdown</label>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 space-y-2">
                     {selectedBill.items.map((item, index) => {
                       const paymentAllocation = item.amount / selectedBill.amount
                       const itemPaid = (selectedBill as any).totalPaid * paymentAllocation
@@ -742,7 +742,7 @@ export default function TenantBillsPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                 <div className="space-y-2">
                   {[
                     { value: 'gcash', label: 'GCash' },
@@ -760,7 +760,7 @@ export default function TenantBillsPage() {
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                         required
                       />
-                      <label htmlFor={method.value} className="ml-2 block text-sm text-gray-700">
+                      <label htmlFor={method.value} className="ml-2 block text-xs sm:text-sm text-gray-700">
                         {method.label}
                       </label>
                     </div>
@@ -770,7 +770,7 @@ export default function TenantBillsPage() {
 
               {paymentForm.method && paymentForm.method !== 'in_person' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Reference Number</label>
                   <input
                     type="text"
                     value={paymentForm.referenceNumber}
@@ -778,7 +778,7 @@ export default function TenantBillsPage() {
                       ...prev,
                       referenceNumber: e.target.value,
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     placeholder="Enter reference number"
                   />
@@ -787,7 +787,7 @@ export default function TenantBillsPage() {
 
               {paymentForm.method === 'in_person' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Received By</label>
                   <input
                     type="text"
                     value={paymentForm.receivedBy}
@@ -795,14 +795,14 @@ export default function TenantBillsPage() {
                       ...prev,
                       receivedBy: e.target.value,
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     placeholder="Enter name of person who received payment"
                   />
                 </div>
               )}
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -815,11 +815,11 @@ export default function TenantBillsPage() {
                       amountPaid: 0,
                     })
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 text-sm sm:text-base bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <button type="submit" className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
                   Submit Payment
                 </button>
               </div>

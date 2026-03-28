@@ -734,8 +734,8 @@ export default function BillingPage() {
 
       {/* Month Readings Modal */}
       {showMonthReadingsModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-4">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-2xl sm:max-w-2xl mx-4 my-4 max-h-[90vh] overflow-y-auto">
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-2xl mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Electric Readings - {(() => {
                 const [year, month] = selectedMonthReadings.monthYear.split('-').map(Number)
@@ -842,8 +842,8 @@ export default function BillingPage() {
 
       {/* Bulk Readings Modal */}
       {showBulkReadingModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-4">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-4xl sm:max-w-4xl mx-4 my-4 max-h-[90vh] overflow-y-auto">
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-4xl mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Bulk Electric Readings
             </h3>
@@ -908,8 +908,8 @@ export default function BillingPage() {
 
       {/* Billing Rates Modal */}
       {showRateModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4">
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingRate ? 'Edit Billing Rate' : 'Add Billing Rate'}
             </h3>
@@ -959,8 +959,8 @@ export default function BillingPage() {
 
       {/* Electric Readings Modal */}
       {showReadingModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4">
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingReading ? 'Edit Electric Reading' : 'Add Electric Reading'}
             </h3>

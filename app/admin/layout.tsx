@@ -213,10 +213,10 @@ export default function AdminLayout({
           </div>
         </aside>
 
-        <div className={`flex-1 flex flex-col p-8 md:p-10 transition-all duration-300 ease-in-out ${
+        <div className={`flex-1 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'ml-64' : 'ml-16'
         }`}>
-          <div className="flex-1 bg-white rounded-2xl shadow-lg p-10 md:p-12">
+          <div className="flex-1 bg-white rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
             <header className="mb-8">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">{getPageTitle()}</h1>
@@ -288,9 +288,9 @@ export default function AdminLayout({
       </div>
 
         {/* Mobile Layout */}
-      <div className="md:hidden flex flex-col h-screen">
+      <div className="md:hidden flex flex-col min-h-screen">
         <div className="flex-1 p-4 overflow-auto">
-          <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6">
             <header className="mb-8">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h1>

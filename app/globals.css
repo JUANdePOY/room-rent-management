@@ -12,6 +12,28 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Better viewport handling for desktop site mode on mobile */
+@media (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  body {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Ensure modals and dialogs are properly sized on mobile */
+@media (max-width: 640px) {
+  .fixed.inset-0 {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 body {

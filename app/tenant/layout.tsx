@@ -168,8 +168,8 @@ export default function TenantLayout({
           </div>
         </aside>
 
-        <div className="flex-1 flex flex-col p-4 md:p-6">
-          <div className="flex-1 bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 md:p-8">
+          <div className="flex-1 bg-white rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
             <header className="mb-8">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">{getPageTitle()}</h1>
@@ -244,9 +244,9 @@ export default function TenantLayout({
       </div>
 
         {/* Mobile Layout */}
-      <div className="md:hidden flex flex-col h-screen">
+      <div className="md:hidden flex flex-col min-h-screen">
         <div className="flex-1 p-4 overflow-auto">
-          <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6">
             <header className="mb-8">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h1>

@@ -594,8 +594,8 @@ export default function TenantsPage() {
 
       {/* Tenant Details Modal */}
       {showDetailsModal && selectedTenant && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-gray-900">
                 {selectedTenant.name} Details
@@ -821,8 +821,8 @@ export default function TenantsPage() {
 
       {/* Add Deposit Modal */}
       {showAddDepositModal && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-4">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Add Deposit
             </h3>
@@ -924,8 +924,8 @@ export default function TenantsPage() {
 
       {/* Add/Edit Tenant Modal */}
       {showModal && (
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-4">
-          <div className="bg-white rounded-t-lg sm:rounded-lg p-6 w-full max-w-md sm:max-w-md mx-4 my-4 max-h-[90vh] overflow-y-auto">
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-end justify-center sm:items-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg p-4 sm:p-6 w-full max-w-[calc(100%-1rem)] sm:max-w-md mx-2 sm:mx-4 my-2 sm:my-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               {editingTenant ? 'Edit Tenant' : 'Add Tenant'}
             </h3>
