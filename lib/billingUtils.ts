@@ -229,7 +229,7 @@ export interface ElectricSummaryItem {
   tenant_id: string
   month_year: string
   current_reading?: number
-  next_reading?: number
+  previous_reading?: number
   usage_kwh?: number
   rate?: number
   electric_amount: number
@@ -249,7 +249,7 @@ export const calculateElectricSummary = (
   monthYear: string
 ): ElectricSummaryItem[] => {
   const occupiedRooms = rooms.filter(room => room.status === 'occupied')
-  const nextMonth = getNextMonth(monthYear) // Reuse util from billing/page
+  const previousMonth = getPreviousMonth(monthYear) // Get previous month for calculation
 
   return occupiedRooms
     .sort((a, b) => parseInt(a.room_number) - parseInt(b.room_number))
@@ -263,7 +263,7 @@ export const calculateElectricSummary = (
           tenant_id: '',
           month_year: monthYear,
           current_reading: undefined,
-          next_reading: undefined,
+          previous_reading: undefined,
           usage_kwh: undefined,
           rate: undefined,
           electric_amount: 0,
@@ -300,23 +300,24 @@ export const calculateElectricSummary = (
       let billId: string | undefined
       let rowColor: ElectricSummaryItem['row_color'] = 'gray'
       let currentReading: ElectricReading | undefined
-      let nextReading: ElectricReading | undefined
+      let previousReading: ElectricReading | undefined
       let rate: BillingRate | undefined
       let usageKwh: number | undefined
 
       // Get readings and rate for calculation (even if bills are generated)
+      // Electric bill for month = current month reading - previous month reading
       currentReading = readings.find(r => r.room_id === room.id && r.month_year === monthYear)
-      nextReading = readings.find(r => r.room_id === room.id && r.month_year === nextMonth)
+      previousReading = readings.find(r => r.room_id === room.id && r.month_year === previousMonth)
       rate = rates.find(r => r.month_year === monthYear)
 
-      if (currentReading && nextReading) {
-        usageKwh = nextReading.reading - currentReading.reading
+      if (currentReading && previousReading) {
+        usageKwh = currentReading.reading - previousReading.reading
       }
 
       // Fallback to calculation if no bill items
       if (electricAmount === 0) {
-        if (currentReading && nextReading && rate) {
-          const usage = nextReading.reading - currentReading.reading
+        if (currentReading && previousReading && rate) {
+          const usage = currentReading.reading - previousReading.reading
           electricAmount = usage * rate.electricity_rate
         }
       }
@@ -366,7 +367,7 @@ export const calculateElectricSummary = (
         tenant_id: tenant.id,
         month_year: monthYear,
         current_reading: currentReading?.reading,
-        next_reading: nextReading?.reading,
+        previous_reading: previousReading?.reading,
         usage_kwh: usageKwh,
         rate: rate?.electricity_rate,
         electric_amount: electricAmount,
@@ -383,6 +384,14 @@ function getNextMonth(monthYear: string): string {
   const [year, month] = monthYear.split('-').map(Number)
   const date = new Date(year, month - 1, 1)
   date.setMonth(date.getMonth() + 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+// Helper function to get previous month
+function getPreviousMonth(monthYear: string): string {
+  const [year, month] = monthYear.split('-').map(Number)
+  const date = new Date(year, month - 1, 1)
+  date.setMonth(date.getMonth() - 1)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 

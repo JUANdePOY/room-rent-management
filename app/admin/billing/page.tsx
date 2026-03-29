@@ -23,6 +23,8 @@ export default function BillingPage() {
   const [rateForm, setRateForm] = useState({
     month_year: '',
     electricity_rate: '',
+    water_rate: '',
+    wifi_rate: '',
   })
   
   const [readingForm, setReadingForm] = useState({
@@ -114,7 +116,7 @@ export default function BillingPage() {
 
   const handleRateSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { month_year, electricity_rate } = rateForm
+    const { month_year, electricity_rate, water_rate, wifi_rate } = rateForm
 
     try {
       if (editingRate) {
@@ -122,6 +124,8 @@ export default function BillingPage() {
           .from('billing_rates')
           .update({
             electricity_rate: parseFloat(electricity_rate),
+            water_rate: parseFloat(water_rate),
+            wifi_rate: parseFloat(wifi_rate),
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRate.id)
@@ -135,6 +139,8 @@ export default function BillingPage() {
         const { error } = await supabase.from('billing_rates').insert({
           month_year,
           electricity_rate: parseFloat(electricity_rate),
+          water_rate: parseFloat(rateForm.water_rate),
+          wifi_rate: parseFloat(rateForm.wifi_rate),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -240,17 +246,17 @@ export default function BillingPage() {
           r.room_id === room.id && r.month_year === generateMonth
         )
         
-        const nextMonth = getNextMonth(generateMonth)
-        const nextReading = electricReadings.find(r => 
-          r.room_id === room.id && r.month_year === nextMonth
+        const previousMonth = getPreviousMonth(generateMonth)
+        const previousReading = electricReadings.find(r => 
+          r.room_id === room.id && r.month_year === previousMonth
         )
 
-        if (!currentReading || !nextReading) {
-          console.warn(`No electric reading for room ${room.room_number} in ${generateMonth} or ${nextMonth}`)
+        if (!currentReading || !previousReading) {
+          console.warn(`No electric reading for room ${room.room_number} in ${generateMonth} or ${previousMonth}`)
           continue
         }
 
-        const electricUsage = nextReading.reading - currentReading.reading 
+        const electricUsage = currentReading.reading - previousReading.reading 
         const electricAmount = electricUsage * billingRate.electricity_rate
          const rentAmount = room.rent_amount
          
@@ -408,6 +414,8 @@ export default function BillingPage() {
     setRateForm({
       month_year: '',
       electricity_rate: '',
+      water_rate: '',
+      wifi_rate: '',
     })
   }
 
@@ -621,6 +629,12 @@ export default function BillingPage() {
                   Electricity Rate (per kWh)
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Water Rate (per month)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  WiFi Rate (per month)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -639,6 +653,8 @@ export default function BillingPage() {
                     })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">₱{rate.electricity_rate.toFixed(4)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">₱{rate.water_rate.toFixed(2)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">₱{rate.wifi_rate.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
                       onClick={() => {
@@ -646,6 +662,8 @@ export default function BillingPage() {
                         setRateForm({
                           month_year: rate.month_year,
                           electricity_rate: rate.electricity_rate.toString(),
+                          water_rate: rate.water_rate.toString(),
+                          wifi_rate: rate.wifi_rate.toString(),
                         })
                         setShowRateModal(true)
                       }}
@@ -932,6 +950,28 @@ export default function BillingPage() {
                   step="0.0001"
                   value={rateForm.electricity_rate}
                   onChange={(e) => setRateForm({ ...rateForm, electricity_rate: e.target.value })}
+                  className="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Water Rate (per month)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={rateForm.water_rate}
+                  onChange={(e) => setRateForm({ ...rateForm, water_rate: e.target.value })}
+                  className="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">WiFi Rate (per month)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={rateForm.wifi_rate}
+                  onChange={(e) => setRateForm({ ...rateForm, wifi_rate: e.target.value })}
                   className="input-field"
                   required
                 />

@@ -268,8 +268,8 @@ export default function ElectricBillsPage() {
                     <span className="ml-1 font-medium">{item.current_reading || '--'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Next:</span>
-                    <span className="ml-1 font-medium">{item.next_reading || '--'}</span>
+                    <span className="text-gray-500">Previous:</span>
+                    <span className="ml-1 font-medium">{item.previous_reading || '--'}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Usage:</span>
@@ -305,7 +305,7 @@ export default function ElectricBillsPage() {
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Room</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Tenant</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell w-24">Current</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell w-24">Next</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell w-24">Previous</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Usage (kWh)</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell w-24">Rate</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Amount</th>
@@ -346,7 +346,7 @@ export default function ElectricBillsPage() {
                       {item.current_reading || '--'}
                     </td>
                     <td className="px-3 py-4 text-gray-500 hidden lg:table-cell truncate">
-                      {item.next_reading || '--'}
+                      {item.previous_reading || '--'}
                     </td>
                     <td className="px-3 py-4 text-gray-500 truncate">
                       {item.usage_kwh ? `${item.usage_kwh.toFixed(2)} kWh` : '-- kWh'}
@@ -437,7 +437,7 @@ export default function ElectricBillsPage() {
               </div>
 
               {/* Usage Details */}
-              {(selectedItem.usage_kwh || selectedItem.current_reading || selectedItem.next_reading) && (
+              {(selectedItem.usage_kwh || selectedItem.current_reading || selectedItem.previous_reading) && (
                 <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
                   <h4 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">Usage Details</h4>
                   {selectedItem.current_reading && (
@@ -446,10 +446,10 @@ export default function ElectricBillsPage() {
                       <span className="font-medium">{selectedItem.current_reading}</span>
                     </div>
                   )}
-                  {selectedItem.next_reading && (
+                  {selectedItem.previous_reading && (
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm gap-1 sm:gap-0 mt-2 sm:mt-0">
-                      <span className="text-gray-700">Next Reading:</span>
-                      <span className="font-medium">{selectedItem.next_reading}</span>
+                      <span className="text-gray-700">Previous Reading:</span>
+                      <span className="font-medium">{selectedItem.previous_reading}</span>
                     </div>
                   )}
                   {selectedItem.usage_kwh && (

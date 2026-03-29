@@ -41,6 +41,8 @@ export interface BillingRate {
   id: string
   month_year: string
   electricity_rate: number
+  water_rate: number
+  wifi_rate: number
   created_at: string
   updated_at: string
 }
